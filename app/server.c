@@ -308,8 +308,37 @@ int main(int argc, char* argv[]){
 			fseek(file,0,SEEK_END);
 			fprintf(file,"%d %s %d\n", p2p_id,ipchar,myport);
 		}
-		// SEND MESSAGES TO SUCC AND PRED SERVERS
-		handle_sendjoin(pred,succ);
+
+		// ESTABLISH CONNECTIONS WITH PRED AND SUCC
+		// cases: 1 server
+		if(pred == succ){ 	//THERE IS ONLY 1 other server
+			int pred_sock = socket(AF_INET, SOCK_STREAM, 0);
+			if(sock < 0){
+				perror("socket() faild");
+				abort();
+			}
+
+			pred_sin.sin_family = AF_INET;
+			pred_sin.sin_addr.s_addr = inet_addr(pred_ip);
+			pred_sin.sin_port = htons(pred_port);
+
+			if(connect(sock,(struct sockaddr *) &pred_sin, sizeof(pred_sin)) < 0){
+				//TODO: Handle Disconnection of prede;asodkjfak;ldsfj
+				perror("client - connect");
+				close(pred_sock);
+				abort();
+			}
+
+			// CONNECTED!
+			handle_sendjoin(pred_sock);
+
+		}else{
+			//TODO
+			handle_sendjoin(pred_sock);
+			handle_sendjoin(succ_sock);
+		}
+
+
 	} else {
 		// First server
 		file = fopen("peers.lst","w+");
