@@ -1,0 +1,20 @@
+1. Create the data structure for the server logic
+	Call it serverInstance
+	Each server has 3 pointer of serverInstance: self, successor, predecessor
+	serverIntance:
+		Primary Range
+		Backup Range
+		IP
+		Port
+		Socket
+2. When a connection hung up:
+	Need to figure out whether this is a successor or a predecessor
+	Then handle accordingly
+3. Handle P2P_JOIN_REQUEST
+	Create the package
+4. Handle P2P_JOIN_RESPONSE
+	Populate the data
+5. Handle P2P_BKUP_REQUEST
+	Create the package
+6. Handle P2P_BKUP_RESPONSE
+	Populate data
