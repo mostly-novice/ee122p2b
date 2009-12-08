@@ -118,6 +118,7 @@ int main(int argc, char* argv[]){
 
 	unsigned int succ_port,pred_port;
 	unsigned char* succ_ip,pred_ip;
+	unsigned int pred_sock,succ_sock;
 
 	/*
 	   When a server starts, in addition to listening on TCP and UDP ports
@@ -312,7 +313,7 @@ int main(int argc, char* argv[]){
 		// ESTABLISH CONNECTIONS WITH PRED AND SUCC
 		// cases: 1 server
 		if(pred == succ){ 	//THERE IS ONLY 1 other server
-			int pred_sock = socket(AF_INET, SOCK_STREAM, 0);
+			pred_sock = socket(AF_INET, SOCK_STREAM, 0);
 			if(sock < 0){
 				perror("socket() faild");
 				abort();
@@ -330,12 +331,11 @@ int main(int argc, char* argv[]){
 			}
 
 			// CONNECTED!
-			handle_sendjoin(pred_sock);
+			handle_sendjoin(pred_sock,p2p_id);
 
 		}else{
-			//TODO
-			handle_sendjoin(pred_sock);
-			handle_sendjoin(succ_sock);
+			handle_sendjoin(pred_sock,p2p_id);
+			handle_sendjoin(succ_sock,p2p_id);
 		}
 
 
@@ -833,6 +833,24 @@ Send BKUP_REQUEST when neccessary
 										   Find which player should be primarily stored in the source host
 										   Sends back P2P_JOIN_RESPONSE with the data
 										   */
+
+										// TODO: Create function findPredSucc(p2pID)
+										struct p2p_join_request * jr_payload = (struct p2p_join_request *) payload_c;
+
+
+										serverInstance **result = findPredSucc(p2p_id);
+										serverInstance *pred_si = result[0];
+										serverInstance *succ_si = result[1];
+										if( pred_si->p2p_id == jr_payload->p2p_id ){
+											// This dude is our pred
+										}else if ( succ_si->p2p_id == jr_payload->p2p_id ){
+											// This dude is our succ
+										}else{
+											// malformed
+										}
+									
+
+
 									} else if(hdr->msgtype == P2P_JOIN_RESPONSE){
 										/*
 										   Populate the data
