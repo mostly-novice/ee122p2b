@@ -136,7 +136,7 @@ struct save_state_request {
     unsigned int exp;
     unsigned char x;
     unsigned char y;
-    unsigned char paddding[3];
+    unsigned char padding[3];
 }__attribute__((packed));
 
 struct save_state_response {
@@ -144,4 +144,35 @@ struct save_state_response {
     unsigned int id;
     unsigned char error_code;
     unsigned short padding;
+}__attribute__((packed));
+
+struct p2p_join_request {
+	unsigned char MsgVer;
+	unsigned short MsgLength;
+	unsigned char MsgType;
+	unsigned int Server_P2P_ID;
+}__attribute__((packed));
+
+
+struct p2p_join_response {
+	unsigned char MsgVer;
+	unsigned short MsgLength;
+	unsigned char MsgType;
+	unsigned int User_Number;
+//	unsigned char* User_Data; // This will be of the form: [NAME(10B), HP(4B), EXP(4B), X(1B), Y(1B)]
+}__attribute__((packed));
+
+struct p2p_bkup_request {
+	unsigned char MsgVer;
+	unsigned short MsgLength;
+	unsigned char MsgType;
+	unsigned char User_Data[20];
+}__attribute__((packed));
+
+struct p2p_bkup_response {
+	unsigned char MsgVer;
+	unsigned short MsgLength;
+	unsigned char MsgType;
+	unsigned char error_code;
+	unsigned char padding[3];
 }__attribute__((packed));
