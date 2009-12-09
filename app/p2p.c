@@ -3,37 +3,22 @@
 #include <stdlib.h>
 
 int main(int argc, char **argv) {
-  int p2p_id = atoi(argv[1]);
-  char * ipchar = argv[2];
-  int port = atoi(argv[3]);
+  char hostname[30];
+  gethostname(hostname);
+  printf("gethostname:%s\n",hostname);
 
-  FILE * file = fopen("peers.lst","r+");
-  if(file){
-    int p2ptemp;
-    char ipchartemp[30];
-    int porttemp;
-    rewind(file);
-    int found = 0;
-    while(fscanf(file,"%d%s%d",&p2ptemp,ipchartemp,&porttemp)!= EOF){
-      printf("p2ptemp:%d\n",p2ptemp);
-      if (p2ptemp == p2p_id){
-	if (strcmp(ipchartemp,ipchar)!=0 || porttemp != port){
-	  printf("Conflicts\n");
-	  exit(0);
-	} else {
-	  found = 1;
-	  printf("Sending JOIN message\n");
-	  break;
-	}
-      }
+    struct hostent *hp = gethostbyname(hostname);
+
+    if (hp == NULL) {
+       printf("gethostbyname() failed\n");
+    } else {
+       printf("%s = ", hp->h_name);
+       unsigned int i=0;
+       while ( hp -> h_addr_list[i] != NULL) {
+	 printf("ip in int:%x\n", *(hp -> h_addr_list[i]));
+          printf( "%s ", inet_ntoa( *( struct in_addr*)( hp -> h_addr_list[i])));
+          i++;
+       }
+       printf("\n");
     }
-    if(!found){
-      fseek(file,0,SEEK_END);
-      fprintf(file,"%d %s %d\n", p2p_id,ipchar,port);
-    }
-  } else {
-    file = fopen("peers.lst","w+");
-    fprintf(file,"%d %s %d\n", p2p_id,ipchar,port);
-  }
-  fclose(file);
-}
+} 
