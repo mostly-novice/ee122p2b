@@ -13,10 +13,8 @@ typedef struct si{
   unsigned int p2p_id;
   unsigned short port;
   unsigned char *ip;
-  unsigned int backup_low;
-  unsigned int backup_high;
-  unsigned int primary_low;
-  unsigned int primary_high;;
+  Range* backup;
+  Range* primary;
 } serverInstance;
 
 struct list_el {
