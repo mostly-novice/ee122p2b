@@ -1,24 +1,9 @@
-#include <netdb.h>
-#include <stdio.h>
-#include <stdlib.h>
-
-int main(int argc, char **argv) {
-  char hostname[30];
-  gethostname(hostname);
-  printf("gethostname:%s\n",hostname);
-
-    struct hostent *hp = gethostbyname(hostname);
-
-    if (hp == NULL) {
-       printf("gethostbyname() failed\n");
-    } else {
-       printf("%s = ", hp->h_name);
-       unsigned int i=0;
-       while ( hp -> h_addr_list[i] != NULL) {
-	 printf("ip in int:%x\n", *(hp -> h_addr_list[i]));
-          printf( "%s ", inet_ntoa( *( struct in_addr*)( hp -> h_addr_list[i])));
-          i++;
-       }
-       printf("\n");
-    }
-} 
+int main() {
+  char str1[] = "124z3yu87";
+  char str2[] = "-3.4";
+  char *str3 = "e24";
+  printf("str1: %d\n", atoi(str1));
+  printf("str2: %d\n", atoi(str2));
+  printf("str3: %d\n", atoi(str3));
+  return 0;
+}

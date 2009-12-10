@@ -21,14 +21,6 @@ int writeToFile(Player* player){
     return 0;
 }
 
-// Printing out the relevant statistics
-void printStat(){
-  printf("\n");
-  printf("Number of mallocs:%d\n",mc);
-  printf("Number of frees:%d\n",fc);
-  printf("\n");
-}
-
 void printMap(char ** fdnamemap){
   printf("Printing Map\n");
   int i;

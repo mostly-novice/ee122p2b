@@ -1,14 +1,38 @@
 unsigned int calc_p2p_id(unsigned char *s){
-	unsigned int hashval;
-	for (hashval=0;*s!=0;s++){
-		hashval=*s+31*hashval;
-	}
-	return hashval % 1024;
+  unsigned int hashval;
+  for (hashval=0;*s!=0;s++){
+    hashval=*s+31*hashval;
+  }
+  return hashval % 1024;
 }
 
 // Check if the given p2p_id is in range r, inclusively
 unsigned int isInRange(int p2p_id, Range * r){
 	return (p2p_id >= r->low) && (p2p_id <= r->high);
+}
+
+Player* constructPlayer(unsigned char *userdata){
+  Player * player = (Player *) malloc (sizeof(Player));
+  int offset = 0;
+  unsigned char name[10];
+  int hp,exp,x,y;
+
+  // Copy to intermediate data
+  memcpy(name,userdata+offset,10); offset+=10;
+  memcpy(hp,userdata+offset,4);    offset+=4;
+  memcpy(exp,userdata+offset,4);   offset+=4;
+  memcpy(x,userdata+offset,1);     offset+=1;
+  memcpy(y,userdata+offset,1);     offset+=1;
+
+  // Initialize player
+  strcpy(player->name,name);
+  player->hp = ntohl(hp);
+  player->exp = ntohl(exp);
+  player->x = x;
+  player->y = y;
+  player->p2p_id = calc_p2p_id(name);
+
+  return player;
 }
 
 unsigned int handle_sendjoin(int sock,int myID){
@@ -19,7 +43,7 @@ unsigned int handle_sendjoin(int sock,int myID){
 	hdr->len = htons(0x8);
 	hdr->msgtype = htons(0x10);
 
-	jr->P2P_ID = htonl(myID);
+	jr->p2p_id = htonl(myID);
 	unsigned char * payload_c = (unsigned char*) jr;
 	unsigned char * header_c = (unsigned char*) hdr;
 	unsigned char * tosent = (unsigned char *) malloc(sizeof(hdr->len));
@@ -46,7 +70,7 @@ unsigned int handle_sendjoinresponse(int sock,unsigned int count,unsigned char *
 	hdr->len = htons(count*20+4+4); // userdata = count*20; usernumber = 4; header = 4
 	hdr->msgtype = htons(0x11);
 
-	jr->usernumber = htnol(count);
+	jr->usernumber = htonl(count);
 
 	unsigned char * payload_c = (unsigned char*) jr;
 	unsigned char * header_c = (unsigned char*) hdr;
@@ -74,8 +98,7 @@ serverInstance** findPredSucc(unsigned int p2p_id){
 	serverInstance* succ_si = (serverInstance *) malloc(sizeof(serverInstance));
 	serverInstance *predsucc[2];
 
-	// TODO: what if file not exist?
-	// Handling P2P Read when server starts
+	int succ_port,pred_port,succ_ip,pred_ip;
 	FILE * file = fopen("peers.lst","r+");
 	if(file){
 		// Initialize myport,p2p_id,L,S,LS,SL
@@ -144,7 +167,6 @@ serverInstance** findPredSucc(unsigned int p2p_id){
 		predsucc[1] = succ;
 
 		return predsucc;
-
 	}
 	else{
 		printf("THIS SHOULD NOT HAPPEN!!!\n");
