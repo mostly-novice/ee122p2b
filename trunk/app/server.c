@@ -41,6 +41,12 @@ enum {
 
 static unsigned s_fault = FAULT_TYPE_NONE;
 
+struct input {
+  unsigned int ip;
+  unsigned short port;
+  unsigned char lastbyte;
+}__attribute__((packed));
+
 typedef struct r{
   unsigned int low;
   unsigned int high;
@@ -206,7 +212,7 @@ int main(int argc, char* argv[]){
   }
 
 
-  myport = 3000;   // <--- segmentation fault here!!!
+  myport = 12345;
   myudpport = 4000;
   if(setvbuf(stdout,NULL,_IONBF,NULL) != 0){
     perror('setvbuf');
@@ -217,26 +223,29 @@ int main(int argc, char* argv[]){
   gethostname(hostname,30);
   struct hostent * hp = gethostbyname(hostname);
 
-  int nonlocalip = *(hp->h_addr_list[0]);
+  struct sockaddr_in mysin;
+
   char * ipchar = inet_ntoa(*(struct in_addr*)(hp->h_addr_list[0]));
+  inet_aton(ipchar,&mysin.sin_addr);
+  int nonlocalip = mysin.sin_addr.s_addr;
   
   printf("Hostname:%s\n",hostname);
   printf("Local Ip:%s\n",ipchar);
+  printf("Local Ip in hex:%x\n",mysin.sin_addr.s_addr);
 
   // Compute the P2P_ID
   // Construct the unsigned char* string to pass into calc_p2p_id
-  unsigned char * p2pchar = (unsigned char *) malloc (sizeof(char)*7);
-  memcpy(p2pchar,&nonlocalip,4);
-  memcpy(p2pchar+4,&myport,2);
-  p2pchar[6] = 0x0;
 
-  printf("Char array constructed");
-  printf("%x\n",p2pchar[1]);
-  p2p_id = calc_p2p_id(p2pchar);
+  struct input * p2pinput = (struct input *) malloc (sizeof(struct input));
+  p2pinput->ip = nonlocalip;
+  p2pinput->port = ntohs(myport);
+  p2pinput->lastbyte = 0x0;
+  
+  p2p_id = calc_p2p_id((unsigned char*)p2pinput);
 
   printf("My p2p_id:%d\n",p2p_id);
 
-  free(p2pchar);
+  free(p2pinput);
 
   // Handling P2P Read when server starts
   FILE * file = fopen("peers.lst","r+");
@@ -273,59 +282,55 @@ int main(int argc, char* argv[]){
     succ_si = results[1];
 
     // ESTABLISH CONNECTIONS WITH PRED AND SUCC
-    // cases: 1 server
-    if(pred_si->p2p_id == succ_si->p2p_id){ 	//THERE IS ONLY 1 other server
-      pred_sock = socket(AF_INET, SOCK_STREAM, 0);
-      if(pred_sock < 0){ perror("socket() faild"); abort(); }
+    // case 1: pred == succ
 
-      pred_sin.sin_family = AF_INET;
-      pred_sin.sin_addr.s_addr = inet_addr(pred_si->ip);
-      pred_sin.sin_port = htons(pred_si->port);
+    if (pred_si){
+      if(pred_si->p2p_id == succ_si->p2p_id){ 	//THERE IS ONLY 1 other server
+	pred_sock = socket(AF_INET, SOCK_STREAM, 0);
+	if(pred_sock < 0){ perror("socket() faild"); abort(); }
 
-      if(connect(pred_sock,(struct sockaddr *) &pred_sin, sizeof(pred_sin)) < 0){
-	//TODO: Handle Disconnection of predecessor
-	perror("client - connect");
-	close(pred_sock);
-	abort();
+	pred_sin.sin_family = AF_INET;
+	pred_sin.sin_addr.s_addr = inet_addr(pred_si->ip);
+	pred_sin.sin_port = htons(pred_si->port);
+	
+	if(connect(pred_sock,(struct sockaddr *) &pred_sin, sizeof(pred_sin)) < 0){
+	  //TODO: Handle Disconnection of predecessor
+	  perror("client - connect");
+	  close(pred_sock);
+	  abort();
+	}
+      
+	// CONNECTED!
+	handle_sendjoin(pred_sock,p2p_id);
+      
+      }else{
+	pred_sock = socket(AF_INET, SOCK_STREAM, 0);
+	if(pred_sock < 0){ perror("socket() faild"); abort(); }
+	
+	pred_sin.sin_family = AF_INET;
+	pred_sin.sin_addr.s_addr = inet_addr(pred_si->ip);
+	pred_sin.sin_port = htons(pred_si->port);
+
+	if(connect(pred_sock,(struct sockaddr *) &pred_sin, sizeof(pred_sin)) < 0){
+	  //TODO: Handle Disconnection of predecessor
+	  perror("client - connect");
+	  close(pred_sock);
+	  abort();
+	}
+	handle_sendjoin(pred_sock,p2p_id);
+	succ_sock = socket(AF_INET, SOCK_STREAM, 0);
+	if(succ_sock < 0){ perror("socket() faild"); abort(); }
+	succ_sin.sin_family = AF_INET;
+	succ_sin.sin_addr.s_addr = inet_addr(succ_si->ip);
+	succ_sin.sin_port = htons(succ_si->ip);
+	if(connect(succ_sock,(struct sockaddr *) &succ_sin, sizeof(succ_sin)) < 0){
+	  //TODO: Handle Disconnection of successocr
+	  perror("client - connect");
+	  close(succ_sock); abort();
+	}
+	// Sending
+	handle_sendjoin(succ_sock,p2p_id);
       }
-
-      // CONNECTED!
-      handle_sendjoin(pred_sock,p2p_id);
-
-    }else{
-       pred_sock = socket(AF_INET, SOCK_STREAM, 0);
-      if(pred_sock < 0){ perror("socket() faild"); abort(); }
-
-      pred_sin.sin_family = AF_INET;
-      pred_sin.sin_addr.s_addr = inet_addr(pred_si->ip);
-      pred_sin.sin_port = htons(pred_si->port);
-
-      if(connect(pred_sock,(struct sockaddr *) &pred_sin, sizeof(pred_sin)) < 0){
-	//TODO: Handle Disconnection of predecessor
-	perror("client - connect");
-	close(pred_sock);
-	abort();
-      }
-
-      // CONNECTED!
-      handle_sendjoin(pred_sock,p2p_id);
-
-      // Make a new connection with the successor
-      succ_sock = socket(AF_INET, SOCK_STREAM, 0);
-      if(succ_sock < 0){ perror("socket() faild"); abort(); }
-
-      succ_sin.sin_family = AF_INET;
-      succ_sin.sin_addr.s_addr = inet_addr(succ_si->ip);
-      succ_sin.sin_port = htons(succ_si->ip);
-
-      if(connect(succ_sock,(struct sockaddr *) &succ_sin, sizeof(succ_sin)) < 0){
-	//TODO: Handle Disconnection of successocr
-	perror("client - connect");
-	close(succ_sock);
-	abort();
-      }
-
-      handle_sendjoin(succ_sock,p2p_id);
     }
 
 
