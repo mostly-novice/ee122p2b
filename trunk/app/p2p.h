@@ -49,8 +49,10 @@ unsigned int handle_sendjoin(int sock,int myID){
   unsigned char * header_c = (unsigned char*) hdr;
   unsigned char * tosent = (unsigned char *) malloc(sizeof(hdr->len));
 
+  printf("performing memcopies\n");
   memcpy(tosent,header_c,4);
   memcpy(tosent+4,payload_c,4);
+  printf("DONE\n");
 
   int bytes_sent = send(sock,tosent,8,0);
 
@@ -165,11 +167,11 @@ serverInstance** findPredSucc(unsigned int p2p_id){
       // set pred/succ Server Instance Values
       pred_si->p2p_id = pred;
       pred_si->port = pred_port;
-      strcpy(pred_ip,pred_si->ip);
+      strcpy(pred_si->ip,pred_ip);
       
       succ_si->p2p_id = succ;
       succ_si->port = succ_port;
-      strcpy(succ,succ_si->ip);
+      strcpy(succ_si->ip,succ_ip);
       
       // concatinate pred asd succ to create predsucc
       predsucc[0] = pred;
