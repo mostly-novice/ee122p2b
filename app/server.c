@@ -1,21 +1,28 @@
 // Server code
 #include <stdio.h>
-#include <stdlib.h>
-#include "constants.h"
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/dir.h>
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <ctype.h>
 #include <unistd.h>
+#include <stdlib.h>
+#include <stddef.h>
+#include <sys/types.h>
+#include <dirent.h>
 
 #include "header.h"
 #include "messages.h"
 #include "server_output.h"
+#include "constants.h"
+
+
 
 #define STDIN 0
 #define HEADER_LENGTH 4
-#define DIR "users"
+#define USERDIR "users"
 
 // Flags
 #define HEADER 0
@@ -41,12 +48,6 @@ enum {
 
 static unsigned s_fault = FAULT_TYPE_NONE;
 
-struct input {
-  unsigned int ip;
-  unsigned short port;
-  unsigned char lastbyte;
-}__attribute__((packed));
-
 typedef struct r{
   unsigned int low;
   unsigned int high;
@@ -65,6 +66,11 @@ typedef struct buffer{
   char * buffer;
 } bufferdata;
 
+#include "model.h"
+#include "p2p.h"
+#include "processHelper.h"
+#include "aux.h"
+
 int findDup(message_record ** mr_array,int id, int ip){
   int i;
   for(i = 0; i <MAX_MESSAGE_RECORD;i++){
@@ -78,42 +84,61 @@ int findDup(message_record ** mr_array,int id, int ip){
   return -1;
 }
 
-void printMessage(char * message, int len){
-  int i;
-  for(i = 0; i < len; i++){
-    printf("%02x ", *(message+i));
+void loadData(LinkedList * list,Range * range){
+  char currentPath[300];
+  chdir("users");
+  getwd(currentPath);
+  printf("Current path:%s\n",currentPath);
+  struct dirent *ep;
+  FILE * file;
+
+  DIR * dp = opendir ("./");
+  if (dp != NULL) {
+    while (ep = readdir (dp)){
+        if (strcmp(ep->d_name,".")!=0 &&strcmp(ep->d_name,"..")!=0){
+	  int p2p_id = calc_p2p_id(ep->d_name);
+	  if(isInRange(p2p_id,range)){
+	    int hp;
+	    int exp;
+	    int x;
+	    int y;
+	    Player * player = (Player*) malloc (sizeof(Player));
+	    file = fopen(ep->d_name,"r");
+	    if(file){
+	      fscanf(file,"%d%d%d%d",&hp,&exp,&x,&y);
+	      strcpy(player->name,ep->d_name);
+	      player->name[strlen(ep->d_name)] = '\0';
+	      player->p2p_id = calc_p2p_id(player->name);
+	      player->hp  = hp;
+	      player->exp = exp;
+	      player->x   = x;
+	      player->y   = y;
+	      player->p2p_id = p2p_id;
+
+	      addPlayer(player,list);
+	      fprintf(stdout,"loadData: add player %s (HP=%d,EXP=%d,X=%d,Y=%d,P2P_ID=%d)\n",
+		      player->name,
+		      player->hp,
+		      player->exp,
+		      player->x,
+		      player->y,
+		      player->p2p_id);
+	      fclose(file);
+	    } else {
+	      printf("File %s is not found\n",ep->d_name);
+	    }
+	  }
+	}
+    }
+    (void) closedir(dp);
+  } else {
+    chdir("..");
+    perror ("Couldn't open the directory");
+    exit(0);
   }
-  printf("\n");
+  chdir("..");
+  return 0;
 }
-
-void cleanBuffer(bufferdata ** fdbuffermap,int i){
-  if(fdbuffermap[i]){
-    if(fdbuffermap[i]->buffer)
-      free(fdbuffermap[i]->buffer);
-    free(fdbuffermap[i]);
-
-    bufferdata * bufferd = (bufferdata *) malloc(sizeof(bufferdata));
-    bufferd->flag = HEADER;
-    bufferd->desire_length = HEADER_LENGTH;
-    bufferd->buffer_size = 0;
-    bufferd->buffer = NULL;
-
-    fdbuffermap[i] = bufferd;
-  }
-}
-
-void cleanNameMap(char ** fdnamemap,int i){
-  printf("Cleaning up name map \n");
-  if(fdnamemap[i]){
-    free(fdnamemap[i]);
-    fdnamemap[i] = NULL;
-  }
-}
-
-#include "model.h"
-#include "p2p.h"
-#include "processHelper.h"
-#include "aux.h"
 
 int main(int argc, char* argv[]){
 
@@ -130,9 +155,20 @@ int main(int argc, char* argv[]){
   Range * primary = (Range *) malloc (sizeof(Range));
   Range * backup  = (Range *) malloc (sizeof(Range));
 
+  primary->low = 0;
+  primary->high = 1023;
+
+  backup->low = 0;
+  backup->high = 1023;
+
   unsigned int p2p_id; // [0-1023]
 
   // Model Variables
+  LinkedList * mylist = (LinkedList *) malloc (sizeof(LinkedList));
+  mylist->head = NULL;
+  mylist->tail = NULL;
+
+  // P2P: Primary List and Backup List
   LinkedList * primarylist = (LinkedList *) malloc (sizeof(LinkedList));
   primarylist->head = NULL;
   primarylist->tail = NULL;
@@ -151,18 +187,20 @@ int main(int argc, char* argv[]){
   srand(time(NULL));
   int id = rand();
 
-  int listener;
-  int udplistener;
-  int myport;
-  int myudpport;
+  int listener,udplistener;
+  int myport,myudpport;
   int done = 0;
   int status;
 
   message_record ** mr_array = malloc(sizeof(*mr_array)*MAX_MESSAGE_RECORD);
 
-  fd_set master;
-  fd_set readfds;
-  fd_set login;
+  fd_set master,readfds,login;
+
+  // Clearing out the set
+  FD_ZERO(&master);
+  FD_ZERO(&readfds);
+  FD_ZERO(&login);
+
   int fdmax;
 
   char ** fdnamemap = malloc(sizeof(*fdnamemap)*MAX_CONNECTION);
@@ -218,34 +256,30 @@ int main(int argc, char* argv[]){
     perror('setvbuf');
   }
 
+
+  /*
+    P2P: Server Starts
+   */
+
   // Find the nonlocal_ip
   char hostname[30];
   gethostname(hostname,30);
   struct hostent * hp = gethostbyname(hostname);
-
   struct sockaddr_in mysin;
-
   char * ipchar = inet_ntoa(*(struct in_addr*)(hp->h_addr_list[0]));
   inet_aton(ipchar,&mysin.sin_addr);
   int nonlocalip = mysin.sin_addr.s_addr;
 
-  printf("Hostname:%s\n",hostname);
-  printf("Local Ip:%s\n",ipchar);
-  printf("Local Ip in hex:%x\n",mysin.sin_addr.s_addr);
-
-  // Compute the P2P_ID
-  // Construct the unsigned char* string to pass into calc_p2p_id
-
+  // Calculating the P2P_ID
   struct input * p2pinput = (struct input *) malloc (sizeof(struct input));
   p2pinput->ip = nonlocalip;
   p2pinput->port = ntohs(myport);
   p2pinput->lastbyte = 0x0;
 
   p2p_id = calc_p2p_id((unsigned char*)p2pinput);
-
-  printf("My p2p_id:%d\n",p2p_id);
-
   free(p2pinput);
+
+  fprintf(stdout,"P2P: My p2p_id:%d\n",p2p_id);
 
   // Handling P2P Read when server starts
   FILE * file = fopen("peers.lst","r+");
@@ -255,10 +289,8 @@ int main(int argc, char* argv[]){
     char ipchartemp[20];
     int porttemp;
     int found = 0;
-
     // Move the cursor back
     rewind(file);
-
     while(fscanf(file,"%d%s%d",&p2ptemp,ipchartemp,&porttemp)!= EOF){
       if (p2ptemp == p2p_id){
 	if (strcmp(ipchartemp,ipchar)!=0 || porttemp != myport){
@@ -283,31 +315,28 @@ int main(int argc, char* argv[]){
 
     // ESTABLISH CONNECTIONS WITH PRED AND SUCC
     // case 1: pred == succ
-
     if (pred_si){
-      printf("inside pred_si if statment\n");
-      printf("pred_si->p2p_id:%d\n",pred_si->p2p_id);
-      printf("succ_si->p2p_id:%d\n",succ_si->p2p_id);
       if(pred_si->p2p_id == succ_si->p2p_id){ 	//THERE IS ONLY 1 other server
-	pred_sock = socket(AF_INET, SOCK_STREAM, 0);
-	printf("predsock: %d\n",pred_sock);
-	if(pred_sock < 0){ perror("socket() faild"); abort(); }
 
-	pred_sin.sin_family = AF_INET;
-	pred_sin.sin_addr.s_addr = inet_addr(pred_si->ip);
-	pred_sin.sin_port = htons(pred_si->port);
+	// Create a new connection
+	newconnection(pred_si->ip,pred_si->port,&pred_sock);
 
-	if(connect(pred_sock,(struct sockaddr *) &pred_sin, sizeof(pred_sin)) < 0){
-	  //TODO: Handle Disconnection of predecessor
-	  perror("client - connect");
-	  close(pred_sock);
-	  abort();
-	}
-
-	// CONNECTED!
-	printf("CONNECTED!!!\n");
+	fprintf(stdout,"P2P: send JOIN_REQUEST to pred %d\n",pred_si->p2p_id);
 	handle_sendjoin(pred_sock,p2p_id);
-	printf("JOIN IS DONE\n");
+
+	FD_SET(pred_sock,&master); // Adding pred_sock to the master list
+	fdmax = max(fdmax,pred_sock);
+
+	// Change the primary and backup range
+	primary->low = pred_si->p2p_id+1;
+	primary->high = p2p_id;
+
+	fprintf(stdout,"P2P: Primary range - [%d-%d]\n",primary->low,primary->high);
+
+	backup->low = p2p_id+1;
+	backup->high = pred_si->p2p_id;
+
+	fprintf(stdout,"P2P: Backup range - [%d-%d]\n",backup->low,backup->high);
 
       }else{
 	pred_sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -336,19 +365,41 @@ int main(int argc, char* argv[]){
 	}
 	// Sending
 	handle_sendjoin(succ_sock,p2p_id);
+
+	FD_SET(pred_sock,&master);
+	FD_SET(succ_sock,&master);
+
+	fdmax = max(fdmax,pred_sock);
+	fdmax = max(fdmax,succ_sock);
+
+	// Change the primary and backup range
+	primary->low = pred_si->p2p_id+1;
+	primary->high = p2p_id;
+
+	fprintf(stdout,"P2P: Primary range - [%d-%d]\n",primary->low,primary->high);
+
+	backup->low = succ_si->p2p_id+1; // This only works for 3
+	backup->high = pred_si->p2p_id;
+
+	fprintf(stdout,"P2P: Backup range - [%d-%d]\n",backup->low,backup->high);
       }
     }
 
 
   } else {
     // First server
+    printf("P2P: I m the first server.\n");
+    printf("Loading data...\n");
+    printf("Loading to primary.\n");
+    loadData(primarylist,primary);
+    printf("Loading to backup.\n");
+    loadData(backuplist,backup);
     file = fopen("peers.lst","w+");
     fprintf(file,"%d %s %d\n", p2p_id,ipchar,myport);
   }
   fclose(file);
 
-  mkdir(DIR,0700);
-  chdir(DIR);
+  mkdir(USERDIR,0700);
 
   // Creating sockets
   listener = socket(AF_INET, SOCK_STREAM, 0);
@@ -377,15 +428,11 @@ int main(int argc, char* argv[]){
     abort();
   }
 
-  FD_ZERO(&master);
-  FD_ZERO(&readfds);
-  FD_ZERO(&login);
-
   FD_SET(listener,&master);
   FD_SET(udplistener,&master);
 
-  if(udplistener>fdmax) fdmax = udplistener;
-  if(listener>fdmax) fdmax = listener;
+  fdmax = max(fdmax,udplistener);
+  fdmax = max(fdmax,listener);
 
   int timeout = 1;
   time_t lasttime = time(NULL);
@@ -457,8 +504,6 @@ int main(int argc, char* argv[]){
 		  }
 		  process_psr(psr->name,udplistener,udpsin,psr->id,oldest,mr_array,badMessageTypeFlag);
 		}
-
-
 	      } else if (udp_read_buffer[0] == SAVE_STATE_REQUEST){
 
 		if(read_bytes != SAVE_STATE_REQUEST_SIZE){
@@ -491,7 +536,6 @@ int main(int argc, char* argv[]){
 	   */ 
 
 	} else if (i==listener){ 
-	  printf("Received a new tcp connection\n");
 	  // handle new connection
 	  int addr_len = sizeof(client_sin);
 	  int newfd = accept(listener,(struct sockaddr*) &client_sin,&addr_len);
@@ -518,17 +562,15 @@ int main(int argc, char* argv[]){
 	    close(i); // bye!
 	    FD_CLR(i,&login);
 	    FD_CLR(i,&master); // remove from the master set
-
-	    // got error or connection closed by client
 	    if(read_bytes <= 0){
 	      printf("Socket %d hung up\n",i);
 	      if (fdnamemap[i]){
-		Player * player = findPlayer(fdnamemap[i],primarylist);
+		Player * player = findPlayer(fdnamemap[i],mylist);
 		if(player){
 		  unsigned char lntosent[LOGOUT_NOTIFY_SIZE];
 		  createlogoutnotify(fdnamemap[i],lntosent);
 		  broadcast(login,i,fdmax,lntosent,LOGOUT_NOTIFY_SIZE);
-		  removePlayer(fdnamemap[i],primarylist);
+		  removePlayer(fdnamemap[i],mylist);
 		}
 	      }
 	    }
@@ -549,30 +591,14 @@ int main(int argc, char* argv[]){
 		int j;
 		for(j = 0; j < HEADER_LENGTH; j++){ header_c[j] = *(bufferd->buffer+j);}
 		hdr = (struct header *) header_c;
-		if (check_malformed_header(hdr->version,ntohs(hdr->len),hdr->msgtype) < 0){
-		  close(i);
-		  FD_CLR(i,&login);
-		  FD_CLR(i,&master);
-		  if(fdnamemap[i]){
-		    Player * player = findPlayer(fdnamemap[i],primarylist);
-		    if(player){ unsigned char lntosent[LOGOUT_NOTIFY_SIZE];
-		      createlogoutnotify(player,lntosent);
-		      broadcast(login,i,fdmax,lntosent,LOGOUT_NOTIFY_SIZE);
-		      removePlayer(fdnamemap[i],primarylist);
-		    }
-		    cleanNameMap(fdnamemap,i);
-		  }
-		  if(fdbuffermap) cleanBuffer(fdbuffermap,i);
-		  break;
-		} else { // If not malform
-		  char * temp = (char*) malloc(sizeof(char)*(bufferd->buffer_size-HEADER_LENGTH));
-		  memcpy(temp,bufferd->buffer+4,bufferd->buffer_size-4);
-		  free(bufferd->buffer);
-		  bufferd->buffer = temp;
-		  bufferd->buffer_size -= HEADER_LENGTH;
-		  bufferd->desire_length = ntohs(hdr->len)-HEADER_LENGTH;
-		  bufferd->flag = PAYLOAD;
-		}
+
+		char * temp = (char*) malloc(sizeof(char)*(bufferd->buffer_size-HEADER_LENGTH));
+		memcpy(temp,bufferd->buffer+4,bufferd->buffer_size-4);
+		free(bufferd->buffer);
+		bufferd->buffer = temp;
+		bufferd->buffer_size -= HEADER_LENGTH;
+		bufferd->desire_length = ntohs(hdr->len)-HEADER_LENGTH;
+		bufferd->flag = PAYLOAD;
 
 	      } else { // Payload
 
@@ -590,21 +616,19 @@ int main(int argc, char* argv[]){
 		      abort();
 		    }
 		  } else { // If he is not logged in
-
-		    //if(check_malformed_stats(ssr->x,ssr->y,ntohl(ssr->hp),ntohl(ssr->exp))!=0){
 		    struct login_request * lr = (struct login_request *) payload_c;
 		    if(check_player_name(lr->name)==0 || check_malformed_stats(lr->x,lr->y,ntohl(lr->hp),ntohl(lr->exp))!=0){
 		      close(i);
 		      FD_CLR(i,&login);
 		      FD_CLR(i,&master);
 
-		      Player * player = findPlayer(lr->name,primarylist);
+		      Player * player = findPlayer(lr->name,mylist);
 		      if(player){
 			// Broadcasting the logout notify to other client
 			unsigned char lntosent[LOGOUT_NOTIFY_SIZE];
 			createlogoutnotify(player,lntosent);
 			broadcast(login,i,fdmax,lntosent,LOGOUT_NOTIFY_SIZE);
-			removePlayer(fdnamemap[i],primarylist);
+			removePlayer(fdnamemap[i],mylist);
 			cleanNameMap(fdnamemap,i);
 		      }
 		      cleanBuffer(fdbuffermap,i);
@@ -619,10 +643,19 @@ int main(int argc, char* argv[]){
 								 lr->hp,
 								 lr->exp,
 								 lr->x,
-								 lr->y,primarylist);
+								 lr->y,mylist);
 		    } else {
 		      FD_SET(i,&login); // Log him in
-		      Player * newplayer = process_login_request(0,i,fdmax,login,lr->name,lr->hp,lr->exp,lr->x,lr->y,primarylist);
+		      Player * newplayer = process_login_request(0,
+								 i,
+								 fdmax,
+								 login,
+								 lr->name,
+								 lr->hp,
+								 lr->exp,
+								 lr->x,
+								 lr->y,
+								 mylist);
 		      if (!fdnamemap[i]){ fdnamemap[i] = malloc(sizeof(char)*11);}
 		      strcpy(fdnamemap[i],lr->name);
 		      strcpy(newplayer->name,fdnamemap[i]);
@@ -631,12 +664,12 @@ int main(int argc, char* argv[]){
 		      Node * node = (Node*) malloc(sizeof(Node)); // TODO: remember to free this
 		      node->datum = newplayer;
 		      node->next = NULL;
-		      if(primarylist->head == NULL){
-			primarylist->head = node;
-			primarylist->tail = node;
+		      if(mylist->head == NULL){
+			mylist->head = node;
+			mylist->tail = node;
 		      }else {
-			primarylist->tail->next = node;
-			primarylist->tail = node;
+			mylist->tail->next = node;
+			mylist->tail = node;
 		      }
 		    }
 		  }
@@ -657,7 +690,7 @@ int main(int argc, char* argv[]){
 		    struct move * m = (struct move *) payload_c;
 		    int direction = m->direction;
 		    Player * player;                     
-		    if (fdnamemap[i]) { player = findPlayer(fdnamemap[i],primarylist);
+		    if (fdnamemap[i]) { player = findPlayer(fdnamemap[i],mylist);
 		    } else {
 		      fprintf(stderr, "THIS SHOULD NEVER HAPPEN\n");
 		    }
@@ -672,14 +705,14 @@ int main(int argc, char* argv[]){
 			FD_CLR(i,&login);
 			FD_CLR(i,&master);
 			if(fdnamemap[i]){
-			  Player * player = findPlayer(fdnamemap[i],primarylist);
+			  Player * player = findPlayer(fdnamemap[i],mylist);
 			  if(player){
 
 			    // Broadcast to other clients
 			    unsigned char lntosent[LOGOUT_NOTIFY_SIZE];
 			    createlogoutnotify(player,lntosent);
 			    broadcast(login,i,fdmax,lntosent,LOGOUT_NOTIFY_SIZE);
-			    removePlayer(fdnamemap[i],primarylist);
+			    removePlayer(fdnamemap[i],mylist);
 
 			  } else {
 			    fprintf(stderr, "THIS SHOULD NEVER HAPPEN\n");
@@ -712,12 +745,12 @@ int main(int argc, char* argv[]){
 		      FD_CLR(i,&login);
 		      FD_CLR(i,&master);
 		      if(fdnamemap[i]){
-			Player * player = findPlayer(fdnamemap[i],primarylist);
+			Player * player = findPlayer(fdnamemap[i],mylist);
 			if(player){
 			  unsigned char lntosent[LOGOUT_NOTIFY_SIZE];
 			  createlogoutnotify(player,lntosent);
 			  broadcast(login,i,fdmax,lntosent,LOGOUT_NOTIFY_SIZE);
-			  removePlayer(fdnamemap[i],primarylist);
+			  removePlayer(fdnamemap[i],mylist);
 			} else {
 			  fprintf(stderr, "THIS SHOULD NEVER HAPPEN\n");
 			  exit(-1);
@@ -730,7 +763,7 @@ int main(int argc, char* argv[]){
 		    char * attacker;
 		    if (fdnamemap[i])attacker = fdnamemap[i];
 		    else fprintf(stderr,"server.c - attack - THIS SHOULD NEVER HAPPEN.\n");
-		    process_attack(i,fdmax,login,attacker,victim,primarylist);
+		    process_attack(i,fdmax,login,attacker,victim,mylist);
 		  }
 		} else if(hdr->msgtype == SPEAK){ // SPEAK
 		  if (!FD_ISSET(i,&login)){ // if not login,
@@ -748,13 +781,13 @@ int main(int argc, char* argv[]){
 		      FD_CLR(i,&login);
 		      FD_CLR(i,&master);
 		      if(fdnamemap[i]){
-			Player * player = findPlayer(fdnamemap[i],primarylist);
+			Player * player = findPlayer(fdnamemap[i],mylist);
 			if(player){
 
 			  unsigned char lntosent[LOGOUT_NOTIFY_SIZE];
 			  createlogoutnotify(player,lntosent);
 			  broadcast(login,i,fdmax,lntosent,LOGOUT_NOTIFY_SIZE);
-			  removePlayer(fdnamemap[i],primarylist);
+			  removePlayer(fdnamemap[i],mylist);
 
 			} else {
 			  fprintf(stderr,"Internal data structure error\n");
@@ -784,12 +817,12 @@ int main(int argc, char* argv[]){
 		    }
 		  } else {  // Player is logged in
 		    if(fdnamemap[i]){
-		      Player * player = findPlayer(fdnamemap[i],primarylist);
+		      Player * player = findPlayer(fdnamemap[i],mylist);
 		      if(player){
 			unsigned char lntosent[LOGOUT_NOTIFY_SIZE];
 			createlogoutnotify(player,lntosent);
 			broadcast(login,i,fdmax,lntosent,LOGOUT_NOTIFY_SIZE);
-			removePlayer(fdnamemap[i],primarylist);
+			removePlayer(fdnamemap[i],mylist);
 			close(i);
 			FD_CLR(i,&login);
 			FD_CLR(i,&master);
@@ -808,55 +841,102 @@ int main(int argc, char* argv[]){
 		  serverInstance **result = findPredSucc(p2p_id);
 		  serverInstance *pred_si = result[0];
 		  serverInstance *succ_si = result[1];
-
 		  unsigned int requestp2p_id = ntohl(jr_payload->p2p_id);
 
+		  printf("Processing P2P_JOIN_REQUEST from %d\n",requestp2p_id);
+
+		  // If I am his/her succ
 		  if( pred_si->p2p_id == requestp2p_id ){
-		    // Handling request from pred
+		    printf("I am the successor of %d\n",requestp2p_id);
+		    primary->low  = requestp2p_id+1;
+		    primary->high = p2p_id;
+		    backup->low   = p2p_id+1;
+		    backup->high  = requestp2p_id;
 
-		  }else if ( succ_si->p2p_id == requestp2p_id ){
-		    // Handling request from succ
-		    // Modify its primary and backup range
-
-		    // primary->high and backup->low stay the same
-		    primary->low = requestp2p_id+1;
-		    backup->high = requestp2p_id;
-
+		    fprintf(stdout,"My new range is: Primary = [%d - %d], Backup = [%d - %d].\n",
+			    primary->low,
+			    primary->high,
+			    backup->low,
+			    backup->high);
 		    int count = 0;
 		    Node * p;
-
 		    // For all the player in the primary list
 		    // First pass: Count how many
 		    for(p = primarylist->head; p; p=p->next){
 		      Player  * curp = p->datum;
 		      // requestor->primary = our backup
-		      if(curp->p2p_id >= backup->low && curp->p2p_id <= backup->high){
+		      if(isInRange(curp->p2p_id,backup)){
 			count++;
 		      }
 		    }
-
 		    // Second pass: allocate memory and populate the array
 		    unsigned char * userdata = (unsigned char *) malloc (sizeof(char)*count*20);
+		    memset(userdata,0,count*20);
 		    unsigned int offset = 0;
 		    for(p = primarylist->head; p; p=p->next){
 		      Player  * curp = p->datum;
 		      // requestor->primary = our backup
-		      if(curp->p2p_id >= backup->low && curp->p2p_id <= backup->high){ // If in range
-			memcpy(userdata+offset,curp->name,10); offset += 10;
-			memcpy(userdata+offset,curp->hp,4);    offset += 4;
-			memcpy(userdata+offset,curp->exp,4);   offset += 4;
-			memcpy(userdata+offset,curp->x,1);     offset += 1;
-			memcpy(userdata+offset,curp->y,1);     offset += 1;
+		      if(isInRange(curp->p2p_id,backup)){ // If in range
+			struct playerpacket * pp = (struct playerpacket *) malloc (sizeof(struct playerpacket));
+
+			strcpy(pp->name,curp->name);
+			pp->hp  = htonl(curp->hp);
+			pp->exp = htonl(curp->exp);
+			pp->x   = curp->x;
+			pp->y   = curp->y;
+
+			unsigned char * ppchar = (unsigned char *) pp;
+			memcpy(userdata+offset,ppchar,20);
+			offset+=20;
 		      }
 		    }
-		    if (offset != count*20){
-		      perror("Something wrong happens when copying to userdata");
-		      exit(0);
-		    }
-		    handle_sendjoinresponse(i,count,userdata);
+		    
+		    printf("Sending Join Response to sock: %d (%d users)\n",i,count);
 
+		    handle_sendjoinresponse(i,count,userdata);
 		    // No need for this anymore
 		    free(userdata);
+		  }
+		  
+
+		  // If I am his/her pred
+		  if ( succ_si->p2p_id == requestp2p_id ){
+		    printf("I am the predeccesor of %d\n",requestp2p_id);
+		    int count = 0;
+		    Node * p;
+		    for(p = primarylist->head; p; p=p->next){
+		      count++;
+		    }
+
+		    printf("count:%d\n",count);
+		    unsigned char userdata2[20*count];
+		    memset(userdata2,0,count*20);
+		    unsigned int offset = 0;
+		    for(p = primarylist->head; p; p=p->next){
+		      Player  * curp = p->datum;
+		      unsigned char pptemp[20];
+		      struct playerpacket * pp = (struct playerpacket *) pptemp;
+
+		      strcpy(pp->name,curp->name);
+		      pp->hp  = htonl(curp->hp);
+		      pp->exp = htonl(curp->exp);
+		      pp->x   = curp->x;
+		      pp->y   = curp->y;
+
+		      unsigned char * ppchar = (unsigned char *) pp;
+		      memcpy(userdata2+offset,ppchar,20);
+		      offset+=20;
+		    }
+		    
+		    printf("P2P: Send JOIN_REPONSE to sock: %d (%d users)\n",i,count);
+		    handle_sendjoinresponse(i,count,userdata2);
+
+		    // Close connection to the previous successor
+		    if (FD_ISSET(succ_sock,&master)){
+		      close(succ_sock);
+		    }
+
+		    //free(userdata);
 		  }else{
 		    // malformed
 		  }
@@ -866,28 +946,45 @@ int main(int argc, char* argv[]){
 		} else if(hdr->msgtype == P2P_JOIN_RESPONSE){
 		  /*
 		    Populate the data
-		  */
+		  */		  
 		  struct p2p_join_response * jr_payload = (struct p2p_join_response *) payload_c;
 		  unsigned int total = ntohl(jr_payload->usernumber);
-		  unsigned char * userdata = jr_payload+4;
+		  unsigned char * userdata = payload_c+4;
 
-		  int i;
-		  for(i=0; i<total; i++){
-		    Player * player = constructPlayer(userdata+i*20);
+		  printf("Recieved P2P_JOIN_RESPONSE (%d users)\n",total);
+
+		  int index;
+		  for(index=0; index<total; index++){
+		    Player * player = constructPlayer(userdata,index*20);
 		    // Assuming that backup and primary are initialized
 		    if(isInRange(player->p2p_id,backup)){
-		      addPlayer(backuplist,player);
+		      fprintf(stdout,"P2P: add player %s (HP=%d,EXP=%d,X=%d,Y=%d,P2P_ID=%d) to backup\n",
+			      player->name,
+			      player->hp,
+			      player->exp,
+			      player->x,
+			      player->y,
+			      player->p2p_id);
+		      addPlayer(player,backuplist);
 
 		    } else if(isInRange(player->p2p_id,primary)){
-		      addPlayer(primarylist,player);
+		      fprintf(stdout,"P2P: add player %s (HP=%d,EXP=%d,X=%d,Y=%d,P2P_ID=%d) to primary\n",
+			      player->name,
+			      player->hp,
+			      player->exp,
+			      player->x,
+			      player->y,
+			      player->p2p_id);
+		      addPlayer(player,primarylist);
 
 		    } else {
-		      printf("This player is not in my range!\n");
+		      printf("This player is not in my ranges!\n");
 		    }
 		  }
 		} else if(hdr->msgtype == P2P_BKUP_REQUEST){
 		} else if(hdr->msgtype == P2P_BKUP_RESPONSE){
 		} else {
+		  printf("hdr->msgtype:%d\n",hdr->msgtype);
 		  printf("We got nothing");
 		}
 		// Move the pointers
@@ -907,7 +1004,7 @@ int main(int argc, char* argv[]){
       } // end FD_ISSET
     }  // end foreach fd
     if (timeout){
-      //updateHP(primarylist);
+      //updateHP(mylist);
       lasttime = currenttime;
     }
   } // end main while(1) loop

@@ -1,38 +1,36 @@
+#include <string.h>
+#include <errno.h>
+
 unsigned int calc_p2p_id(unsigned char *s){
   unsigned int hashval;
   for (hashval=0;*s!=0;s++){
-    printf("s:%x\n",*s);
     hashval=*s+31*hashval;
   }
   return hashval % 1024;
 }
 
 // Check if the given p2p_id is in range r, inclusively
-unsigned int isInRange(int p2p_id, Range * r){
-  return (p2p_id >= r->low) && (p2p_id <= r->high);
+unsigned int isInRange(int n, Range * r){
+  if(r->low > r->high){
+    return (n >= r->low && n <= 1023) || (n <= r->high && n >= 0);
+  } else {
+    return (n >= r->low) && (n <= r->high);
+  }
 }
 
-Player* constructPlayer(unsigned char *userdata){
+Player* constructPlayer(unsigned char *userdata, int offset){
   Player * player = (Player *) malloc (sizeof(Player));
-  int offset = 0;
   unsigned char name[10];
   int hp,exp,x,y;
 
   // Copy to intermediate data
-  memcpy(name,userdata+offset,10); offset+=10;
-  memcpy(hp,userdata+offset,4);    offset+=4;
-  memcpy(exp,userdata+offset,4);   offset+=4;
-  memcpy(x,userdata+offset,1);     offset+=1;
-  memcpy(y,userdata+offset,1);     offset+=1;
-
-  // Initialize player
-  strcpy(player->name,name);
-  player->hp = ntohl(hp);
-  player->exp = ntohl(exp);
-  player->x = x;
-  player->y = y;
+  struct playerpacket * pp = (struct playerpacket*) (userdata+offset);
+  strcpy(player->name,pp->name);
+  player->hp = ntohl(pp->hp);
+  player->exp = ntohl(pp->exp);
+  player->x = pp->x;
+  player->y = pp->y;
   player->p2p_id = calc_p2p_id(name);
-
   return player;
 }
 
@@ -42,17 +40,15 @@ unsigned int handle_sendjoin(int sock,int myID){
 
   hdr->version = 0x04;
   hdr->len = htons(0x8);
-  hdr->msgtype = htons(0x10);
+  hdr->msgtype = 0x10;
 
   jr->p2p_id = htonl(myID);
   unsigned char * payload_c = (unsigned char*) jr;
   unsigned char * header_c = (unsigned char*) hdr;
   unsigned char * tosent = (unsigned char *) malloc(sizeof(hdr->len));
 
-  printf("performing memcopies\n");
   memcpy(tosent,header_c,4);
   memcpy(tosent+4,payload_c,4);
-  printf("DONE\n");
 
   int bytes_sent = send(sock,tosent,8,0);
 
@@ -71,27 +67,29 @@ unsigned int handle_sendjoinresponse(int sock,unsigned int count,unsigned char *
   struct p2p_join_response *jr=(struct p2p_join_response *) malloc(sizeof(char)*(count*20+4));
   hdr->version = 0x04;
   hdr->len = htons(count*20+4+4); // userdata = count*20; usernumber = 4; header = 4
-  hdr->msgtype = htons(0x11);
+  hdr->msgtype = 0x11;
 
   jr->usernumber = htonl(count);
 
   unsigned char * payload_c = (unsigned char*) jr;
   unsigned char * header_c = (unsigned char*) hdr;
-  unsigned char * tosent = (unsigned char *) malloc(sizeof(hdr->len));
+  unsigned char * tosent = (unsigned char *) malloc(sizeof(count*20+8));
 
   memcpy(tosent,header_c,4);
   memcpy(tosent+4,payload_c,4);
   memcpy(tosent+8,userdata,count*20);
 
-  int bytes_sent = send(sock,tosent,hdr->len,0);
+  printMessage(tosent,count*20+8);
+
+  int bytes_sent = send(sock,tosent,count*20+8,0);
 
   if( bytes_sent < 0 ){
     perror("send failed");
   }
-
+  
   free(hdr);
-  free(jr);
-  free(tosent);
+  //free(tosent);
+  //free(jr);
 }
 
 
@@ -102,7 +100,10 @@ serverInstance** findPredSucc(unsigned int p2p_id){
   int succ_port,pred_port;
   char succ_ip[30];
   char pred_ip[30];
-  FILE * file = fopen("peers.lst","r+");
+
+  char * name = "peers.lst";
+  FILE * file = fopen(name,"re");
+
   if(file){
     // Initialize myport,p2p_id,L,S,LS,SL
     int pred,succ;
@@ -120,42 +121,27 @@ serverInstance** findPredSucc(unsigned int p2p_id){
 
     while(fscanf(file,"%d%s%d",&p2ptemp,ipchartemp,&porttemp)!= EOF){
       if (p2ptemp != p2p_id){
-	printf("p2p_temp:%d\n",p2ptemp);
 	L = max(L,p2ptemp);
 	S = min(S,p2ptemp);
 	if (p2ptemp > p2p_id) SL = min(p2ptemp,SL);
 	else LS = max(p2ptemp,LS);
       }
     }
-
-    pred = LS;
-    succ = SL;
-    if(p2p_id > L)
-      succ = S;
-    if(p2p_id < S)
-      pred = L;
-    printf("L:%d\n",L);
-    printf("S:%d\n",S);
-    printf("LS:%d\n",LS);
-    printf("SL:%d\n",SL);
-    printf("Pred: %d\nSucc:%d\n",pred,succ);
-
+    pred = LS; succ = SL;
+    if(p2p_id > L) succ = S;
+    if(p2p_id < S) pred = L;
     rewind(file);
 
     if (pred > -1 && succ < 1024){
-      // Search through the database
       while(fscanf(file,"%d%s%d",&p2ptemp,ipchartemp,&porttemp)!= EOF){
-	// FIND PORT/IP for pred and succ
 	if(succ == p2ptemp){
 	  succ_port = porttemp;
 	  strcpy(succ_ip,ipchartemp);
 	}
-	
 	if(pred == p2ptemp){
 	  pred_port = porttemp;
 	  strcpy(pred_ip,ipchartemp);
 	}
-	
       }
 
       serverInstance* pred_si = (serverInstance *) malloc(sizeof(serverInstance));
@@ -170,8 +156,6 @@ serverInstance** findPredSucc(unsigned int p2p_id){
       strcpy(pred_si->ip,pred_ip);
       
       succ_si->p2p_id = succ;
-
-      printf("succ_si->p2p_id:%d\n",succ_si->p2p_id);
       succ_si->port = succ_port;
       strcpy(succ_si->ip,succ_ip);
       
@@ -183,11 +167,10 @@ serverInstance** findPredSucc(unsigned int p2p_id){
       predsucc[0] = NULL;
       predsucc[1] = NULL;
     }
-
+    fclose(file);
     return predsucc;
-	
   } else{ // Check for the file
-    printf("THIS SHOULD NOT HAPPEN!!!\n");
+    fprintf(stderr,"Error: %s.\n",strerror(errno));
     exit(0);
   }
 }

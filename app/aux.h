@@ -66,3 +66,56 @@ int readstdin(char * command, char * arg){
   strcpy(arg, pch);
   return 1;
 }
+
+void newconnection(char * ip, int port, int * sockargs){
+  int sock = socket(AF_INET, SOCK_STREAM, 0);
+  if(sock < 0){ perror("socket() faild"); abort(); }
+
+  *sockargs = sock;
+
+  struct sockaddr_in sin;
+  memset(&sin, 0, sizeof(sin));
+
+  sin.sin_family = AF_INET;
+  sin.sin_addr.s_addr = inet_addr(ip);
+  sin.sin_port = htons(port);
+
+  if(connect(sock,(struct sockaddr *) &sin, sizeof(sin)) < 0){
+    //TODO: Handle Disconnection of predecessor
+    perror("client - connect");
+    close(sock);
+    abort();
+  }
+}
+
+void cleanNameMap(char ** fdnamemap,int i){
+  printf("Cleaning up name map \n");
+  if(fdnamemap[i]){
+    free(fdnamemap[i]);
+    fdnamemap[i] = NULL;
+  }
+}
+
+void cleanBuffer(bufferdata ** fdbuffermap,int i){
+  if(fdbuffermap[i]){
+    if(fdbuffermap[i]->buffer)
+      free(fdbuffermap[i]->buffer);
+    free(fdbuffermap[i]);
+
+    bufferdata * bufferd = (bufferdata *) malloc(sizeof(bufferdata));
+    bufferd->flag = HEADER;
+    bufferd->desire_length = HEADER_LENGTH;
+    bufferd->buffer_size = 0;
+    bufferd->buffer = NULL;
+
+    fdbuffermap[i] = bufferd;
+  }
+}
+
+void printMessage(char * message, int len){
+  int i;
+  for(i = 0; i < len; i++){
+    printf("%02x ", *(message+i));
+  }
+  printf("\n");
+}
