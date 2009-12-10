@@ -78,76 +78,76 @@ struct invalid_state {
 }__attribute__((packed));
 
 struct storage_location_request {
-    unsigned char message_type;
-    unsigned int id;
-    unsigned char name[10];
-    unsigned char padding;
+  unsigned char message_type;
+  unsigned int id;
+  unsigned char name[10];
+  unsigned char padding;
 }__attribute__((packed));
 
 struct storage_location_response {
-    unsigned char message_type;
-    unsigned int id;
-    unsigned int server_ip;
-    unsigned short udpport;
+  unsigned char message_type;
+  unsigned int id;
+  unsigned int server_ip;
+  unsigned short udpport;
 }__attribute__((packed));
 
 struct server_area_request {
-    unsigned char message_type;
-    unsigned int id;
-    unsigned char x;
-    unsigned char y;
-    unsigned char paddding;
+  unsigned char message_type;
+  unsigned int id;
+  unsigned char x;
+  unsigned char y;
+  unsigned char paddding;
 }__attribute__((packed));
 
 struct server_area_response {
-    unsigned char message_type;
-    unsigned int id;
-    unsigned int server_ip;
-    unsigned short tcpport;
-    unsigned char min_x;
-    unsigned char max_x;
-    unsigned char min_y;
-    unsigned char max_y;
-    unsigned char paddding;
+  unsigned char message_type;
+  unsigned int id;
+  unsigned int server_ip;
+  unsigned short tcpport;
+  unsigned char min_x;
+  unsigned char max_x;
+  unsigned char min_y;
+  unsigned char max_y;
+  unsigned char paddding;
 }__attribute__((packed));
 
 struct player_state_request {
-    unsigned char message_type;
-    unsigned int id;
-    unsigned char name[10];
-    unsigned char paddding;
+  unsigned char message_type;
+  unsigned int id;
+  unsigned char name[10];
+  unsigned char paddding;
 }__attribute__((packed));
 
 struct player_state_response {
-    unsigned char message_type;
-    unsigned int id;
-    unsigned char name[10];
-    unsigned int hp;
-    unsigned int exp;
-    unsigned char x;
-    unsigned char y;
+  unsigned char message_type;
+  unsigned int id;
+  unsigned char name[10];
+  unsigned int hp;
+  unsigned int exp;
+  unsigned char x;
+  unsigned char y;
 }__attribute__((packed));
 
 struct save_state_request {
-    unsigned char message_type;
-    unsigned int id;
-    unsigned char name[10];
-    unsigned int hp;
-    unsigned int exp;
-    unsigned char x;
-    unsigned char y;
-    unsigned char padding[3];
+  unsigned char message_type;
+  unsigned int id;
+  unsigned char name[10];
+  unsigned int hp;
+  unsigned int exp;
+  unsigned char x;
+  unsigned char y;
+  unsigned char padding[3];
 }__attribute__((packed));
 
 struct save_state_response {
-    unsigned char message_type;
-    unsigned int id;
-    unsigned char error_code;
-    unsigned short padding;
+  unsigned char message_type;
+  unsigned int id;
+  unsigned char error_code;
+  unsigned short padding;
 }__attribute__((packed));
 
 struct p2p_join_request {
-	unsigned int p2p_id;
+  unsigned int p2p_id;
 }__attribute__((packed));
 
 
@@ -157,16 +157,16 @@ struct p2p_join_response {
 }__attribute__((packed));
 
 struct p2p_bkup_request {
-	unsigned char MsgVer;
-	unsigned short MsgLength;
-	unsigned char MsgType;
-	unsigned char User_Data[20];
+  unsigned char MsgVer;
+  unsigned short MsgLength;
+  unsigned char MsgType;
+  unsigned char User_Data[20];
 }__attribute__((packed));
 
 struct p2p_bkup_response {
-	unsigned char MsgVer;
-	unsigned short MsgLength;
-	unsigned char MsgType;
-	unsigned char error_code;
-	unsigned char padding[3];
+  unsigned char MsgVer;
+  unsigned short MsgLength;
+  unsigned char MsgType;
+  unsigned char error_code;
+  unsigned char padding[3];
 }__attribute__((packed));

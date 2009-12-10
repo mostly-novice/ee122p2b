@@ -9,6 +9,14 @@ typedef struct P{
   unsigned int p2p_id;
 } Player;
 
+typedef struct playerpacket{
+  char name[10];
+  int hp;
+  int exp;
+  char x;
+  char y;
+}__attribute__((packed));;
+
 typedef struct si{
   unsigned int p2p_id;
   unsigned short port;
@@ -126,7 +134,7 @@ void addPlayer(Player * newplayer, LinkedList * list){
   Node * node = (Node*) malloc(sizeof(Node)); // TODO: remember to free this
   node->datum = newplayer;
   node->next = NULL;
-  if(list->head == NULL){
+  if(list->head == NULL || list->tail == NULL){
     list->head = node;
     list->tail = node;
   }else {
@@ -134,3 +142,9 @@ void addPlayer(Player * newplayer, LinkedList * list){
     list->tail = node;
   }
 }
+
+struct input {
+  unsigned int ip;
+  unsigned short port;
+  unsigned char lastbyte;
+}__attribute__((packed));

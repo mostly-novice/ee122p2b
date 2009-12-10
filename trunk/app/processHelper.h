@@ -4,56 +4,57 @@
 
 //player = process_login_request(0,i,fdmax,login,lr->name,lr->hp,lr->exp,lr->x,lr->y,mylist);
 Player * process_login_request(char errorcode, int sock, int fdmax, fd_set login, unsigned char * n,
-		int hp, int exp, int x, int y, LinkedList * activeList){
-	char * name = (char *) malloc(sizeof(char)*(strlen(n)+1));
-	strcpy(name,n);
-	strcat(name,"\0");
-	// make a new instance of Player
-	Player * newplayer = (Player *) malloc(sizeof(Player));
+			       int hp, int exp, int x, int y, LinkedList * activeList){
+  chdir(USERDIR);
+  char * name = (char *) malloc(sizeof(char)*(strlen(n)+1));
+  strcpy(name,n);
+  strcat(name,"\0");
+  // make a new instance of Player
+  Player * newplayer = (Player *) malloc(sizeof(Player));
+  
+  
+  memcpy(newplayer->name,name,10);
+  newplayer->hp = ntohl(hp);
+  newplayer->exp = ntohl(exp);
+  newplayer->x = x;
+  newplayer->y = y;
 
+  unsigned char lrtosent[LOGIN_REPLY_SIZE];
+  unsigned char mntosent[MOVE_NOTIFY_SIZE];
+  createloginreply(errorcode,
+		   newplayer->hp,
+		   newplayer->exp,
+		   newplayer->x,
+		   newplayer->y,
+		   lrtosent);
+  unicast(sock,lrtosent,LOGIN_REPLY_SIZE);
 
-	memcpy(newplayer->name,name,10);
-	newplayer->hp = ntohl(hp);
-	newplayer->exp = ntohl(exp);
-	newplayer->x = x;
-	newplayer->y = y;
+  if(errorcode == 0){
+    Node * p;
+    for(p = activeList->head; p != NULL; p = p->next){
+      if (strcmp(p->datum->name,newplayer->name)!=0){
+	Player * player = p->datum;
+	createmovenotify(player->name,
+			 player->hp,
+			 player->exp,
+			 player->x,
+			 player->y,
+			 mntosent);
+	unicast(sock,mntosent,MOVE_NOTIFY_SIZE);
+      }
+    }
 
-	unsigned char lrtosent[LOGIN_REPLY_SIZE];
-	unsigned char mntosent[MOVE_NOTIFY_SIZE];
-	createloginreply(errorcode,
-			newplayer->hp,
-			newplayer->exp,
-			newplayer->x,
-			newplayer->y,
-			lrtosent);
-	unicast(sock,lrtosent,LOGIN_REPLY_SIZE);
-
-	if(errorcode == 0){
-		Node * p;
-		for(p = activeList->head; p != NULL; p = p->next){
-			if (strcmp(p->datum->name,newplayer->name)!=0){
-				Player * player = p->datum;
-				createmovenotify(player->name,
-						player->hp,
-						player->exp,
-						player->x,
-						player->y,
-						mntosent);
-				unicast(sock,mntosent,MOVE_NOTIFY_SIZE);
-			}
-		}
-
-		memset(mntosent,0,MOVE_NOTIFY_SIZE);
-		createmovenotify(name,newplayer->hp,
-				newplayer->exp,
-				newplayer->x,
-				newplayer->y,
-				mntosent);
-		broadcast(login,sock,fdmax,mntosent,MOVE_NOTIFY_SIZE);
-		return newplayer;
-	} else {
-		return NULL;
-	}
+    memset(mntosent,0,MOVE_NOTIFY_SIZE);
+    createmovenotify(name,newplayer->hp,
+		     newplayer->exp,
+		     newplayer->x,
+		     newplayer->y,
+		     mntosent);
+    broadcast(login,sock,fdmax,mntosent,MOVE_NOTIFY_SIZE);
+    return newplayer;
+  } else {
+    return NULL;
+  }
 }
 int process_move(int listener,
 		int sock,
@@ -159,7 +160,12 @@ int process_invalid_state(char payload_c[]){
 }
 
 // Processing PLAYER_STATE_REQUEST
-int process_psr(char* name,int udpsock,struct sockaddr_in targetsin,int id,int oldest,message_record** mr_array,int badMessageTypeFlag){
+int process_psr(char* name,
+		int udpsock,
+		struct sockaddr_in targetsin,
+		int id,int oldest,
+		message_record** mr_array,
+		int badMessageTypeFlag){
 	FILE * file = fopen(name,"r"); // open the file
 	int hp;
 	int exp;
@@ -210,7 +216,15 @@ int process_psr(char* name,int udpsock,struct sockaddr_in targetsin,int id,int o
 }
 
 // process_ssr : process save state request
-int process_ss_request(char* name,int hp, int exp, char x, char y, int udpsock, struct sockaddr_in targetsin, int id,int oldest,message_record** mr_array,int faultyErrorCodeFlag){
+int process_ss_request(char* name,
+		       int hp,
+		       int exp,
+		       char x,
+		       char y,
+		       int udpsock,
+		       struct sockaddr_in targetsin,
+		       int id,
+		       int oldest,message_record** mr_array,int faultyErrorCodeFlag){
 	FILE * file = fopen(name,"w+");
 	int myhp = ntohl(hp);
 	int myexp = ntohl(exp);
