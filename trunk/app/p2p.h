@@ -170,12 +170,14 @@ serverInstance** findPredSucc(unsigned int p2p_id){
       strcpy(pred_si->ip,pred_ip);
       
       succ_si->p2p_id = succ;
+
+      printf("succ_si->p2p_id:%d\n",succ_si->p2p_id);
       succ_si->port = succ_port;
       strcpy(succ_si->ip,succ_ip);
       
       // concatinate pred asd succ to create predsucc
-      predsucc[0] = pred;
-      predsucc[1] = succ;
+      predsucc[0] = pred_si;
+      predsucc[1] = succ_si;
 
     } else { // I am the only server
       predsucc[0] = NULL;
