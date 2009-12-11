@@ -157,10 +157,7 @@ struct p2p_join_response {
 }__attribute__((packed));
 
 struct p2p_bkup_request {
-  unsigned char MsgVer;
-  unsigned short MsgLength;
-  unsigned char MsgType;
-  unsigned char User_Data[20];
+  unsigned char userdata[20];
 }__attribute__((packed));
 
 struct p2p_bkup_response {

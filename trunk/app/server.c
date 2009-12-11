@@ -505,6 +505,16 @@ int main(int argc, char* argv[]){
 				     oldest,
 				     mr_array,
 				     faultyErrorCodeFlag);
+
+		  // Send a p2p_bkup_request
+		  struct playerpacket * pp = (struct playerpacket *) malloc (sizeof(struct playerpacket));
+		  strcpy(pp->name,ssr->name);
+		  pp->hp = ssr->hp;
+		  pp->exp = ssr->exp;
+		  pp->x = ssr->x;
+		  pp->y = ssr->y;
+		  unsigned char * userdata = (unsigned char *) pp;
+		  handle_sendbkuprequest(succ_sock,userdata);
 		}
 	      }else{
 		on_malformed_udp(3);
