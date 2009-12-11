@@ -179,8 +179,8 @@ int main(int argc, char* argv[]){
     These are pointer to serverInstance for predecessor and successor
   */
 
-  serverInstance * pred_si;
-  serverInstance * succ_si;
+  serverInstance * predecessor_si;
+  serverInstance * successor_si;
 
   int pred_sock = -1;
   int succ_sock = -1;
@@ -347,8 +347,11 @@ int main(int argc, char* argv[]){
 
     // Find
     serverInstance ** results = findPredSucc(p2p_id);
-    pred_si = results[0];
-    succ_si = results[1];
+    serverInstance * pred_si = results[0];
+    serverInstance * succ_si = results[1];
+
+    predecessor_si = pred_si;
+    successor_si = succ_si;
 
     printf("P2P: My pred: %d\n",pred_si->p2p_id);
     printf("P2P: My succ: %d\n",succ_si->p2p_id);
@@ -610,15 +613,19 @@ int main(int argc, char* argv[]){
 	    if(read_bytes <= 0){
 	      if(succ_sock == i){
 		printf("P2P: Backup server goes down\n");
-		serverInstance ** results = findPredSucc(p2p_id);
-		serverInstance * succ_si = results[0];
-		
-		printf("P2P:Connecting to the new backup %s:%d(%d)\n",
-		       succ_si->ip,
-		       succ_si->port,
-		       succ_si->p2p_id);
-		newconnection(succ_si->ip,succ_si->port,&succ_sock);
-		printf("P2P: New socket for successor: %d\n",succ_sock);
+		serverInstance ** results = findPredSucc(successor_si->p2p_id);
+		serverInstance * succ_si = results[1];
+
+		if(p2p_id != succ_si->p2p_id){
+		  printf("P2P:Connecting to the new backup %s:%d(%d)\n",
+			 succ_si->ip,
+			 succ_si->port,
+			 succ_si->p2p_id);
+		  newconnection(succ_si->ip,succ_si->port,&succ_sock);
+		  printf("P2P: New socket for successor: %d\n",succ_sock);
+		} else {
+		  printf("I am the only one left\n");
+		}
 	      }
 	      printf("Socket %d hung up\n",i);
 	      if (fdnamemap[i]){
@@ -901,11 +908,10 @@ int main(int argc, char* argv[]){
 		  unsigned int requestp2p_id = ntohl(jr_payload->p2p_id);
 
 		  printf("Processing P2P_JOIN_REQUEST from %d\n",requestp2p_id);
-		  printf("pred_si->p2p_id:%d\n",pred_si->p2p_id);
-		  printf("succ_si->p2p_id:%d\n",succ_si->p2p_id);
 
 		  // If I am his/her succ
 		  if( pred_si->p2p_id == requestp2p_id ){
+		    predecessor_si = pred_si;
 		    printf("I am the successor of %d\n",requestp2p_id);
 		    primary->low  = requestp2p_id+1;
 		    primary->high = p2p_id;
@@ -994,15 +1000,25 @@ int main(int argc, char* argv[]){
 
 		    printf("P2P: Send JOIN_REPONSE to sock: %d (%d users)\n",i,count);
 		    handle_sendjoinresponse(i,count,userdata2);
+		    //close(i);
 
 		    // Close connection to the previous successor
 		    if (succ_sock != -1){
-		      close(succ_sock);
+		      printf("Close connection to the previous successor %s:%d(%d)\n",
+			     successor_si->ip,
+			     successor_si->port,
+			     successor_si->p2p_id);
+		      //close(succ_sock);
 		      FD_CLR(succ_sock,&master);
 		    }
 
-		    printf("P2P: Setting succ_sock to %d\n",i);
+		    // Make a new connection
+		    //newconnection(succ_si->ip,succ_si->port,&succ_sock);
+		    //printf("P2P: Connecting to %s:%d(%d)\n",succ_si->ip,succ_si->port,succ_si->p2p_id);
+		    //printf("P2P: Setting succ_sock to %d\n",succ_sock);
+
 		    succ_sock = i;
+		    successor_si = succ_si;
 		  }
 
 
