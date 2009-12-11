@@ -136,8 +136,8 @@ if __name__ == '__main__':
     f = open(plst, 'r');
     print f.read();
     f.close();
-    svr = launch_server(s_port)
-    #svr = Popen([s_bin, '-t', str(s_port), '-u', str(s_port)], stdout = PIPE)
+    #svr = launch_server(s_port)
+    svr = Popen([s_bin, '-t', str(s_port), '-u', str(s_port)], stdout = PIPE)
     sleep(s_timer)
 
     print svr.poll();
