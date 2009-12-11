@@ -363,7 +363,7 @@ int main(int argc, char* argv[]){
 
 	fprintf(stdout,"P2P: Primary range - [%d-%d]\n",primary->low,primary->high);
 
-	backup->low = succ_si->p2p_id+1; // This only works for 3
+	backup->low = findPred(pred_si->p2p_id)+1;
 	backup->high = pred_si->p2p_id;
 
 	fprintf(stdout,"P2P: Backup range - [%d-%d]\n",backup->low,backup->high);
@@ -845,8 +845,9 @@ int main(int argc, char* argv[]){
 		    printf("I am the successor of %d\n",requestp2p_id);
 		    primary->low  = requestp2p_id+1;
 		    primary->high = p2p_id;
-		    backup->low   = succ_si->p2p_id+1;
+		    backup->low   = findPred(requestp2p_id)+1;
 		    backup->high  = requestp2p_id;
+
 
 		    fprintf(stdout,"My new range is: Primary = [%d - %d], Backup = [%d - %d].\n",
 			    primary->low,
@@ -970,7 +971,8 @@ int main(int argc, char* argv[]){
 		      addPlayer(player,primarylist);
 
 		    } else {
-		      printf("This player is not in my ranges!\n");
+			 
+		      printf("This player:%d(name: %s) is not in my ranges!\n",player->p2p_id,player->name);
 		    }
 		  }
 		} else if(hdr->msgtype == P2P_BKUP_REQUEST){

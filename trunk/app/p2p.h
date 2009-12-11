@@ -20,7 +20,6 @@ unsigned int isInRange(int n, Range * r){
 
 Player* constructPlayer(unsigned char *userdata, int offset){
   Player * player = (Player *) malloc (sizeof(Player));
-  unsigned char name[10];
   int hp,exp,x,y;
 
   // Copy to intermediate data
@@ -30,7 +29,7 @@ Player* constructPlayer(unsigned char *userdata, int offset){
   player->exp = ntohl(pp->exp);
   player->x = pp->x;
   player->y = pp->y;
-  player->p2p_id = calc_p2p_id(name);
+  player->p2p_id = calc_p2p_id(player->name);
   return player;
 }
 
@@ -116,7 +115,7 @@ int handle_sendbkupresponse(int sock, unsigned char * userdata){
   hdr->len = htons(0x08);
   hdr->msgtype = 0x13;
 
-  br->errorcode = 0x0;
+  br->error_code = 0x0;
 
   unsigned char * payload_c = (unsigned char*) br;
   unsigned char * header_c = (unsigned char*) hdr;
@@ -216,4 +215,10 @@ serverInstance** findPredSucc(unsigned int p2p_id){
     fprintf(stderr,"Error: %s.\n",strerror(errno));
     exit(0);
   }
+}
+
+
+unsigned int findPred(unsigned int p2p_id){
+	serverInstance **si = findPredSucc(p2p_id);
+	return si[0]->p2p_id;
 }
