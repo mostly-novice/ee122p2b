@@ -66,6 +66,39 @@ typedef struct buffer{
   char * buffer;
 } bufferdata;
 
+void cleanNameMap(char ** fdnamemap,int i){
+  printf("Cleaning up name map \n");
+  if(fdnamemap[i]){
+    free(fdnamemap[i]);
+    fdnamemap[i] = NULL;
+  }
+}
+
+void cleanBuffer(bufferdata ** fdbuffermap,int i){
+  if(fdbuffermap[i]){
+    if(fdbuffermap[i]->buffer)
+      free(fdbuffermap[i]->buffer);
+    free(fdbuffermap[i]);
+
+    bufferdata * bufferd = (bufferdata *) malloc(sizeof(bufferdata));
+    bufferd->flag = HEADER;
+    bufferd->desire_length = HEADER_LENGTH;
+    bufferd->buffer_size = 0;
+    bufferd->buffer = NULL;
+
+    fdbuffermap[i] = bufferd;
+  }
+}
+
+void printMessage(char * message, int len){
+  int i;
+  for(i = 0; i < len; i++){
+    printf("%02x ", *(message+i));
+  }
+  printf("\n");
+}
+
+
 #include "model.h"
 #include "p2p.h"
 #include "processHelper.h"
