@@ -94,21 +94,19 @@ int handle_sendbkuprequest(int sock, unsigned char * userdata){
   hdr->len = htons(0x18); // userdata = count*20; usernumber = 4; header = 4
   hdr->msgtype = 0x12;
 
-  unsigned char * payload_c = (unsigned char*) br;
   unsigned char * header_c = (unsigned char*) hdr;
   unsigned char tosent[0x18];
 
   memcpy(tosent,header_c,4);
   memcpy(tosent,userdata,20);
 
-  int bytes_sent = send(sock,tosent,count*20+8,0);
+  int bytes_sent = send(sock,tosent,0x18,0);
 
   if( bytes_sent < 0 ){
     perror("send failed");
   }
   
   free(hdr);
-  free(br);
 }
 
 
