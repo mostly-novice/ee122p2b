@@ -134,7 +134,7 @@ void loadData(LinkedList * list,Range * range){
   } else {
     chdir("..");
     perror ("Couldn't open the directory");
-    exit(0);
+    exit(-1);
   }
   chdir("..");
   return 0;
@@ -297,7 +297,7 @@ int main(int argc, char* argv[]){
       if (p2ptemp == p2p_id){
 	if (strcmp(ipchartemp,ipchar)!=0 || porttemp != myport){
 	  printf("Conflicts\n");
-	  exit(0);
+	  exit(-1);
 	} else {
 	  found = 1;
 	  break;
@@ -1053,5 +1053,4 @@ int main(int argc, char* argv[]){
       lasttime = currenttime;
     }
   } // end main while(1) loop
-
 }
