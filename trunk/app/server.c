@@ -308,6 +308,7 @@ int main(int argc, char* argv[]){
     if(!found){
       fseek(file,0,SEEK_END);
       fprintf(file,"%d %s %d\n", p2p_id,ipchar,myport);
+	  fclose(file);
     }
 
     // Find
@@ -385,8 +386,8 @@ int main(int argc, char* argv[]){
     loadData(backuplist,backup);
     file = fopen("peers.lst","w+");
     fprintf(file,"%d %s %d\n", p2p_id,ipchar,myport);
+    fclose(file);
   }
-  fclose(file);
 
   mkdir(USERDIR,0700);
 
