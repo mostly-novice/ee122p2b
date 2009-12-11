@@ -219,7 +219,6 @@ serverInstance** findPredSucc(unsigned int p2p_id){
   }
 }
 
-
 unsigned int findPred(unsigned int p2p_id){
   serverInstance **si = findPredSucc(p2p_id);
   return si[0]->p2p_id;

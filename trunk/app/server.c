@@ -100,9 +100,9 @@ void printMessage(char * message, int len){
 
 
 #include "model.h"
-#include "p2p.h"
 #include "processHelper.h"
 #include "aux.h"
+#include "p2p.h"
 
 int findDup(message_record ** mr_array,int id, int ip){
   int i;
@@ -608,6 +608,18 @@ int main(int argc, char* argv[]){
 	    FD_CLR(i,&login);
 	    FD_CLR(i,&master); // remove from the master set
 	    if(read_bytes <= 0){
+	      if(succ_sock == i){
+		printf("P2P: Backup server goes down\n");
+		serverInstance ** results = findPredSucc(p2p_id);
+		serverInstance * succ_si = results[0];
+		
+		printf("P2P:Connecting to the new backup %s:%d(%d)\n",
+		       succ_si->ip,
+		       succ_si->port,
+		       succ_si->p2p_id);
+		newconnection(succ_si->ip,succ_si->port,&succ_sock);
+		printf("P2P: New socket for successor: %d\n",succ_sock);
+	      }
 	      printf("Socket %d hung up\n",i);
 	      if (fdnamemap[i]){
 		Player * player = findPlayer(fdnamemap[i],mylist);
