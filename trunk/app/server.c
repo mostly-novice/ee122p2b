@@ -845,7 +845,7 @@ int main(int argc, char* argv[]){
 		    printf("I am the successor of %d\n",requestp2p_id);
 		    primary->low  = requestp2p_id+1;
 		    primary->high = p2p_id;
-		    backup->low   = p2p_id+1;
+		    backup->low   = succ_si->p2p_id+1;
 		    backup->high  = requestp2p_id;
 
 		    fprintf(stdout,"My new range is: Primary = [%d - %d], Backup = [%d - %d].\n",
