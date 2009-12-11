@@ -121,7 +121,6 @@ void loadData(LinkedList * list,Range * range){
   char currentPath[300];
   chdir("users");
   getwd(currentPath);
-  printf("Current path:%s\n",currentPath);
   struct dirent *ep;
   FILE * file;
 
@@ -139,6 +138,7 @@ void loadData(LinkedList * list,Range * range){
 	  file = fopen(ep->d_name,"r");
 	  if(file){
 	    fscanf(file,"%d%d%d%d",&hp,&exp,&x,&y);
+	    fclose(file);
 	    strcpy(player->name,ep->d_name);
 	    player->name[strlen(ep->d_name)] = '\0';
 	    player->p2p_id = calc_p2p_id(player->name);
@@ -156,14 +156,13 @@ void loadData(LinkedList * list,Range * range){
 /* 		    player->x, */
 /* 		    player->y, */
 /* 		    player->p2p_id); */
-	    fclose(file);
 	  } else {
 	    printf("File %s is not found\n",ep->d_name);
 	  }
 	}
       }
     }
-    (void) closedir(dp);
+    closedir(dp);
   } else {
     chdir("..");
     perror ("Couldn't open the directory");
@@ -341,7 +340,6 @@ int main(int argc, char* argv[]){
     if(!found){
       fseek(file,0,SEEK_END);
       fprintf(file,"%d %s %d\n", p2p_id,ipchar,myport);
-	  fclose(file);
     }
     fclose(file);
 
@@ -353,8 +351,7 @@ int main(int argc, char* argv[]){
     predecessor_si = pred_si;
     successor_si = succ_si;
 
-    printf("P2P: My pred: %d\n",pred_si->p2p_id);
-    printf("P2P: My succ: %d\n",succ_si->p2p_id);
+    printf("P2P: pred: %d succ: %d\n",pred_si->p2p_id,succ_si->p2p_id);
 
     // ESTABLISH CONNECTIONS WITH PRED AND SUCC
     // case 1: pred == succ
@@ -366,7 +363,7 @@ int main(int argc, char* argv[]){
 
 	succ_sock = pred_sock;
 
-	fprintf(stdout,"P2P: send JOIN_REQUEST to pred %d\n",pred_si->p2p_id);
+	fprintf(stdout,"P2P: send P2P_JOIN_REQUEST to pred %d\n",pred_si->p2p_id);
 	handle_sendjoin(pred_sock,p2p_id);
 
 	FD_SET(pred_sock,&master); // Adding pred_sock to the master list
@@ -376,21 +373,22 @@ int main(int argc, char* argv[]){
 	primary->low = pred_si->p2p_id+1;
 	primary->high = p2p_id;
 
-	fprintf(stdout,"P2P: Primary range - [%d-%d]\n",primary->low,primary->high);
+	//fprintf(stdout,"P2P: Primary range - [%d-%d]\n",primary->low,primary->high);
 
 	backup->low = p2p_id+1;
 	backup->high = pred_si->p2p_id;
 
-	fprintf(stdout,"P2P: Backup range - [%d-%d]\n",backup->low,backup->high);
+	//fprintf(stdout,"P2P: Backup range - [%d-%d]\n",backup->low,backup->high);
 
       }else{
-	printf("%d => %d => %d\n",pred_si->p2p_id,p2p_id,succ_si->p2p_id);
-	printf("Connecting to predecessor\n");
+	printf("P2P: %d => %d => %d\n",pred_si->p2p_id,p2p_id,succ_si->p2p_id);
+
 	newconnection(pred_si->ip,pred_si->port,&pred_sock);
+	fprintf(stdout,"P2P: send P2P_JOIN_REQUEST to pred %d\n",pred_si->p2p_id);
 	handle_sendjoin(pred_sock,p2p_id);
 
 	newconnection(succ_si->ip,succ_si->port,&succ_sock);
-	// Sending
+	fprintf(stdout,"P2P: send P2P_JOIN_REQUEST to succ %d\n",pred_si->p2p_id);
 	handle_sendjoin(succ_sock,p2p_id);
 
 	FD_SET(pred_sock,&master);
@@ -403,12 +401,12 @@ int main(int argc, char* argv[]){
 	primary->low = pred_si->p2p_id+1;
 	primary->high = p2p_id;
 
-	fprintf(stdout,"P2P: Primary range - [%d-%d]\n",primary->low,primary->high);
+	//fprintf(stdout,"P2P: Primary range - [%d-%d]\n",primary->low,primary->high);
 
 	backup->low = findPred(pred_si->p2p_id)+1;
 	backup->high = pred_si->p2p_id;
 
-	fprintf(stdout,"P2P: Backup range - [%d-%d]\n",backup->low,backup->high);
+	//fprintf(stdout,"P2P: Backup range - [%d-%d]\n",backup->low,backup->high);
       }
     }
 
@@ -416,10 +414,10 @@ int main(int argc, char* argv[]){
   } else {
     // First server
     printf("P2P: I m the first server.\n");
-    printf("Loading data...\n");
-    printf("Loading to primary.\n");
+    //printf("Loading data...\n");
+    //printf("Loading to primary.\n");
     loadData(primarylist,primary);
-    printf("Loading to backup.\n");
+    //printf("Loading to backup.\n");
     loadData(backuplist,backup);
     file = fopen("peers.lst","w+");
     fprintf(file,"%d %s %d\n", p2p_id,ipchar,myport);
@@ -611,8 +609,12 @@ int main(int argc, char* argv[]){
 	    FD_CLR(i,&login);
 	    FD_CLR(i,&master); // remove from the master set
 	    if(read_bytes <= 0){
-	      if(succ_sock == i){
-		printf("P2P: Backup server goes down\n");
+	      if(succ_sock == i && pred_sock != succ_sock){
+		printf("P2P: Backup server(%s:%d,%d) goes down fd=%d\n",
+		       successor_si->ip,
+		       successor_si->port,
+		       successor_si->p2p_id,
+		       succ_sock);
 		serverInstance ** results = findPredSucc(successor_si->p2p_id);
 		serverInstance * succ_si = results[1];
 
@@ -907,12 +909,12 @@ int main(int argc, char* argv[]){
 		  serverInstance *succ_si = result[1];
 		  unsigned int requestp2p_id = ntohl(jr_payload->p2p_id);
 
-		  printf("Processing P2P_JOIN_REQUEST from %d\n",requestp2p_id);
+		  printf("P2P: recv P2P_JOIN_REQUEST from %d\n",requestp2p_id);
 
 		  // If I am his/her succ
 		  if( pred_si->p2p_id == requestp2p_id ){
 		    predecessor_si = pred_si;
-		    printf("I am the successor of %d\n",requestp2p_id);
+		    printf("%d is my predecessor\n",requestp2p_id);
 		    primary->low  = requestp2p_id+1;
 		    primary->high = p2p_id;
 		    backup->low   = findPred(requestp2p_id)+1;
@@ -956,7 +958,7 @@ int main(int argc, char* argv[]){
 			free(pp);
 		      }
 		    }
-		    printf("Sending Join Response to sock: %d (%d users)\n",i,count);
+		    printf("P2P: send P2P_JOIN_RESPONSE to pred %d (%d users)\n",requestp2p_id,count);
 
 		    handle_sendjoinresponse(i,count,userdata);
 
@@ -967,7 +969,7 @@ int main(int argc, char* argv[]){
 
 		  // If I am his/her pred
 		  if ( succ_si->p2p_id == requestp2p_id ){
-		    printf("I am the predeccesor of %d\n",requestp2p_id);
+		    printf("%d is my successor\n",requestp2p_id);
 		    int count = 0;
 		    Node * p;
 		    for(p = primarylist->head; p; p=p->next){
@@ -1004,7 +1006,8 @@ int main(int argc, char* argv[]){
 
 		    // Close connection to the previous successor
 		    if (succ_sock != -1){
-		      printf("Close the existing connection to the previous successor %s:%d(%d)\n",
+		      printf("Close existing conn fd=%d %s:%d(%d)\n",
+			     succ_sock,
 			     successor_si->ip,
 			     successor_si->port,
 			     successor_si->p2p_id);
@@ -1014,10 +1017,9 @@ int main(int argc, char* argv[]){
 
 		    // Make a new connection
 		    newconnection(succ_si->ip,succ_si->port,&succ_sock);
-		    //printf("P2P: Connecting to %s:%d(%d)\n",succ_si->ip,succ_si->port,succ_si->p2p_id);
+		    printf("P2P: Connecting to fd=%d,%s:%d(%d)\n",succ_sock,succ_si->ip,succ_si->port,succ_si->p2p_id);
 		    //printf("P2P: Setting succ_sock to %d\n",succ_sock);
 
-		    succ_sock = i;
 		    successor_si = succ_si;
 		  }
 
@@ -1030,7 +1032,7 @@ int main(int argc, char* argv[]){
 		  unsigned int total = ntohl(jr_payload->usernumber);
 		  unsigned char * userdata = payload_c+4;
 
-		  printf("Recieved P2P_JOIN_RESPONSE (%d users)\n",total);
+		  printf("P2P: recv P2P_JOIN_RESPONSE (%d users)\n",total);
 
 		  int index;
 		  for(index=0; index<total; index++){
@@ -1060,6 +1062,14 @@ int main(int argc, char* argv[]){
 
 		      printf("This player:%d(name: %s) is not in my ranges!\n",player->p2p_id,player->name);
 		    }
+		  }
+
+		  // Close the connection to the predecessor, but keeps the connection with the successor.
+		  if (i == pred_sock && pred_sock != succ_sock){
+		    printf("P2P: close connection on fd=%d(%d).\n",pred_sock,predecessor_si->p2p_id);
+		    FD_CLR(i,&master);
+		    pred_sock = -1;
+		    close(i);
 		  }
 		} else if(hdr->msgtype == P2P_BKUP_REQUEST){
 		  printf("P2P: Recieved BKUP_REQUEST\n");

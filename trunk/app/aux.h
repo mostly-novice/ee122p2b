@@ -43,7 +43,6 @@ void putName(int fd, char * name, char*map[]){
 }
 
 void newconnection(char * ip, int port, int * sockargs){
-  printf("Trying to connect to %s:%d\n",ip,port);
   int sock = socket(AF_INET, SOCK_STREAM, 0);
   if(sock < 0){ perror("socket() faild"); abort(); }
 
