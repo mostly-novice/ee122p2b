@@ -91,7 +91,7 @@ int handle_sendbkuprequest(int sock, unsigned char * userdata){
   struct header *hdr=(struct header *) malloc(sizeof(int));
   hdr->version = 0x04;
   hdr->len = htons(0x8);
-  hdr->msgtype = 0x13;
+  hdr->msgtype = 0x12;
 
   unsigned char * header_c = (unsigned char*) hdr;
   unsigned char tosent[0x18];
@@ -108,14 +108,14 @@ int handle_sendbkuprequest(int sock, unsigned char * userdata){
   free(hdr);
 }
 
-int handle_sendbkupresponse(int sock, unsigned char * userdata){
+int handle_sendbkupresponse(int sock, char errorcode){
   struct header *hdr=(struct header *) malloc(sizeof(int));
   struct p2p_bkup_response *br=(struct p2p_bkup_response *) malloc(sizeof(char)*4);
   hdr->version = 0x04;
   hdr->len = htons(0x08);
   hdr->msgtype = 0x13;
 
-  br->error_code = 0x0;
+  br->error_code = errorcode;
 
   unsigned char * payload_c = (unsigned char*) br;
   unsigned char * header_c = (unsigned char*) hdr;
