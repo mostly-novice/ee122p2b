@@ -161,9 +161,5 @@ struct p2p_bkup_request {
 }__attribute__((packed));
 
 struct p2p_bkup_response {
-  unsigned char MsgVer;
-  unsigned short MsgLength;
-  unsigned char MsgType;
   unsigned char error_code;
-  unsigned char padding[3];
 }__attribute__((packed));

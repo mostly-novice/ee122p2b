@@ -91,16 +91,41 @@ unsigned int handle_sendjoinresponse(int sock,unsigned int count,unsigned char *
 int handle_sendbkuprequest(int sock, unsigned char * userdata){
   struct header *hdr=(struct header *) malloc(sizeof(int));
   hdr->version = 0x04;
-  hdr->len = htons(0x18); // userdata = count*20; usernumber = 4; header = 4
-  hdr->msgtype = 0x12;
+  hdr->len = htons(0x8);
+  hdr->msgtype = 0x13;
 
   unsigned char * header_c = (unsigned char*) hdr;
   unsigned char tosent[0x18];
 
   memcpy(tosent,header_c,4);
-  memcpy(tosent,userdata,20);
+  memcpy(tosent+4,userdata,20);
 
   int bytes_sent = send(sock,tosent,0x18,0);
+
+  if( bytes_sent < 0 ){
+    perror("send failed");
+  }
+  
+  free(hdr);
+}
+
+int handle_sendbkupresponse(int sock, unsigned char * userdata){
+  struct header *hdr=(struct header *) malloc(sizeof(int));
+  struct p2p_bkup_response *br=(struct p2p_bkup_response *) malloc(sizeof(char)*4);
+  hdr->version = 0x04;
+  hdr->len = htons(0x08);
+  hdr->msgtype = 0x13;
+
+  br->errorcode = 0x0;
+
+  unsigned char * payload_c = (unsigned char*) br;
+  unsigned char * header_c = (unsigned char*) hdr;
+  unsigned char tosent[0x08];
+
+  memcpy(tosent,header_c,4);
+  memcpy(tosent+4,payload_c,4);
+
+  int bytes_sent = send(sock,tosent,0x8,0);
 
   if( bytes_sent < 0 ){
     perror("send failed");
