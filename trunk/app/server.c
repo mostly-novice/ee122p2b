@@ -149,13 +149,13 @@ void loadData(LinkedList * list,Range * range){
 	    player->p2p_id = p2p_id;
 
 	    addPlayer(player,list);
-	    fprintf(stdout,"loadData: add player %s (HP=%d,EXP=%d,X=%d,Y=%d,P2P_ID=%d)\n",
-		    player->name,
-		    player->hp,
-		    player->exp,
-		    player->x,
-		    player->y,
-		    player->p2p_id);
+	    /* fprintf(stdout,"loadData: add player %s (HP=%d,EXP=%d,X=%d,Y=%d,P2P_ID=%d)\n", */
+/* 		    player->name, */
+/* 		    player->hp, */
+/* 		    player->exp, */
+/* 		    player->x, */
+/* 		    player->y, */
+/* 		    player->p2p_id); */
 	    fclose(file);
 	  } else {
 	    printf("File %s is not found\n",ep->d_name);
@@ -1004,16 +1004,16 @@ int main(int argc, char* argv[]){
 
 		    // Close connection to the previous successor
 		    if (succ_sock != -1){
-		      printf("Close connection to the previous successor %s:%d(%d)\n",
+		      printf("Close the existing connection to the previous successor %s:%d(%d)\n",
 			     successor_si->ip,
 			     successor_si->port,
 			     successor_si->p2p_id);
-		      //close(succ_sock);
+		      close(succ_sock);
 		      FD_CLR(succ_sock,&master);
 		    }
 
 		    // Make a new connection
-		    //newconnection(succ_si->ip,succ_si->port,&succ_sock);
+		    newconnection(succ_si->ip,succ_si->port,&succ_sock);
 		    //printf("P2P: Connecting to %s:%d(%d)\n",succ_si->ip,succ_si->port,succ_si->p2p_id);
 		    //printf("P2P: Setting succ_sock to %d\n",succ_sock);
 
@@ -1037,23 +1037,23 @@ int main(int argc, char* argv[]){
 		    Player * player = constructPlayer(userdata,index*20);
 		    // Assuming that backup and primary are initialized
 		    if(isInRange(player->p2p_id,backup)){
-		      fprintf(stdout,"P2P: add player %s (HP=%d,EXP=%d,X=%d,Y=%d,P2P_ID=%d) to backup\n",
-			      player->name,
-			      player->hp,
-			      player->exp,
-			      player->x,
-			      player->y,
-			      player->p2p_id);
+		      /* fprintf(stdout,"P2P: add player %s (HP=%d,EXP=%d,X=%d,Y=%d,P2P_ID=%d) to backup\n", */
+/* 			      player->name, */
+/* 			      player->hp, */
+/* 			      player->exp, */
+/* 			      player->x, */
+/* 			      player->y, */
+/* 			      player->p2p_id); */
 		      addPlayer(player,backuplist);
 
 		    } else if(isInRange(player->p2p_id,primary)){
-		      fprintf(stdout,"P2P: add player %s (HP=%d,EXP=%d,X=%d,Y=%d,P2P_ID=%d) to primary\n",
-			      player->name,
-			      player->hp,
-			      player->exp,
-			      player->x,
-			      player->y,
-			      player->p2p_id);
+		      /* fprintf(stdout,"P2P: add player %s (HP=%d,EXP=%d,X=%d,Y=%d,P2P_ID=%d) to primary\n", */
+/* 			      player->name, */
+/* 			      player->hp, */
+/* 			      player->exp, */
+/* 			      player->x, */
+/* 			      player->y, */
+/* 			      player->p2p_id); */
 		      addPlayer(player,primarylist);
 
 		    } else {
