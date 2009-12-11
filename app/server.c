@@ -313,6 +313,9 @@ int main(int argc, char* argv[]){
     pred_si = results[0];
     succ_si = results[1];
 
+    printf("P2P: My pred: %d\n",pred_si->p2p_id);
+    printf("P2P: My succ: %d\n",succ_si->p2p_id);
+
     // ESTABLISH CONNECTIONS WITH PRED AND SUCC
     // case 1: pred == succ
     if (pred_si){
@@ -339,30 +342,12 @@ int main(int argc, char* argv[]){
 	fprintf(stdout,"P2P: Backup range - [%d-%d]\n",backup->low,backup->high);
 
       }else{
-	pred_sock = socket(AF_INET, SOCK_STREAM, 0);
-	if(pred_sock < 0){ perror("socket() faild"); abort(); }
-
-	pred_sin.sin_family = AF_INET;
-	pred_sin.sin_addr.s_addr = inet_addr(pred_si->ip);
-	pred_sin.sin_port = htons(pred_si->port);
-
-	if(connect(pred_sock,(struct sockaddr *) &pred_sin, sizeof(pred_sin)) < 0){
-	  //TODO: Handle Disconnection of predecessor
-	  perror("client - connect");
-	  close(pred_sock);
-	  abort();
-	}
+	printf("%d => %d => %d\n",pred_si->p2p_id,p2p_id,succ_si->p2p_id);
+	printf("Connecting to predecessor\n");
+	newconnection(pred_si->ip,pred_si->port,&pred_sock);
 	handle_sendjoin(pred_sock,p2p_id);
-	succ_sock = socket(AF_INET, SOCK_STREAM, 0);
-	if(succ_sock < 0){ perror("socket() faild"); abort(); }
-	succ_sin.sin_family = AF_INET;
-	succ_sin.sin_addr.s_addr = inet_addr(succ_si->ip);
-	succ_sin.sin_port = htons(succ_si->ip);
-	if(connect(succ_sock,(struct sockaddr *) &succ_sin, sizeof(succ_sin)) < 0){
-	  //TODO: Handle Disconnection of successocr
-	  perror("client - connect");
-	  close(succ_sock); abort();
-	}
+
+	newconnection(succ_si->ip,succ_si->port,&succ_sock);
 	// Sending
 	handle_sendjoin(succ_sock,p2p_id);
 
@@ -864,13 +849,12 @@ int main(int argc, char* argv[]){
 		    // First pass: Count how many
 		    for(p = primarylist->head; p; p=p->next){
 		      Player  * curp = p->datum;
-		      // requestor->primary = our backup
 		      if(isInRange(curp->p2p_id,backup)){
 			count++;
 		      }
 		    }
 		    // Second pass: allocate memory and populate the array
-		    unsigned char * userdata = (unsigned char *) malloc (sizeof(char)*count*20);
+		    unsigned char userdata[20*count];
 		    memset(userdata,0,count*20);
 		    unsigned int offset = 0;
 		    for(p = primarylist->head; p; p=p->next){
@@ -888,16 +872,14 @@ int main(int argc, char* argv[]){
 			unsigned char * ppchar = (unsigned char *) pp;
 			memcpy(userdata+offset,ppchar,20);
 			offset+=20;
+			free(pp);
 		      }
 		    }
-		    
 		    printf("Sending Join Response to sock: %d (%d users)\n",i,count);
 
 		    handle_sendjoinresponse(i,count,userdata);
-		    // No need for this anymore
-		    free(userdata);
 		  }
-		  
+		    
 
 		  // If I am his/her pred
 		  if ( succ_si->p2p_id == requestp2p_id ){
@@ -905,7 +887,10 @@ int main(int argc, char* argv[]){
 		    int count = 0;
 		    Node * p;
 		    for(p = primarylist->head; p; p=p->next){
-		      count++;
+		      Player * curp = p->datum;
+		      if(isInRange(curp->p2p_id,primary)){
+			count++;
+		      }
 		    }
 
 		    printf("count:%d\n",count);
@@ -914,33 +899,30 @@ int main(int argc, char* argv[]){
 		    unsigned int offset = 0;
 		    for(p = primarylist->head; p; p=p->next){
 		      Player  * curp = p->datum;
-		      unsigned char pptemp[20];
-		      struct playerpacket * pp = (struct playerpacket *) pptemp;
+		      if(isInRange(curp->p2p_id,primary)){
+			unsigned char pptemp[20];
+			struct playerpacket * pp = (struct playerpacket *) pptemp;
+			
+			strcpy(pp->name,curp->name);
+			pp->hp  = htonl(curp->hp);
+			pp->exp = htonl(curp->exp);
+			pp->x   = curp->x;
+			pp->y   = curp->y;
 
-		      strcpy(pp->name,curp->name);
-		      pp->hp  = htonl(curp->hp);
-		      pp->exp = htonl(curp->exp);
-		      pp->x   = curp->x;
-		      pp->y   = curp->y;
-
-		      unsigned char * ppchar = (unsigned char *) pp;
-		      memcpy(userdata2+offset,ppchar,20);
-		      offset+=20;
+			unsigned char * ppchar = (unsigned char *) pp;
+			memcpy(userdata2+offset,ppchar,20);
+			offset+=20;
+		      }
 		    }
 		    
 		    printf("P2P: Send JOIN_REPONSE to sock: %d (%d users)\n",i,count);
 		    handle_sendjoinresponse(i,count,userdata2);
 
 		    // Close connection to the previous successor
-		    if (FD_ISSET(succ_sock,&master)){
+		    if (succ_sock != -1){
 		      close(succ_sock);
 		    }
-
-		    //free(userdata);
-		  }else{
-		    // malformed
 		  }
-
 
 
 		} else if(hdr->msgtype == P2P_JOIN_RESPONSE){

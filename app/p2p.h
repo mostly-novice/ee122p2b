@@ -45,7 +45,7 @@ unsigned int handle_sendjoin(int sock,int myID){
   jr->p2p_id = htonl(myID);
   unsigned char * payload_c = (unsigned char*) jr;
   unsigned char * header_c = (unsigned char*) hdr;
-  unsigned char * tosent = (unsigned char *) malloc(sizeof(hdr->len));
+  unsigned char tosent[8];
 
   memcpy(tosent,header_c,4);
   memcpy(tosent+4,payload_c,4);
@@ -58,7 +58,6 @@ unsigned int handle_sendjoin(int sock,int myID){
 
   free(hdr);
   free(jr);
-  free(tosent);
 }
 
 // Handling sending join response
@@ -73,13 +72,11 @@ unsigned int handle_sendjoinresponse(int sock,unsigned int count,unsigned char *
 
   unsigned char * payload_c = (unsigned char*) jr;
   unsigned char * header_c = (unsigned char*) hdr;
-  unsigned char * tosent = (unsigned char *) malloc(sizeof(count*20+8));
+  unsigned char tosent[count*20+8];
 
   memcpy(tosent,header_c,4);
   memcpy(tosent+4,payload_c,4);
   memcpy(tosent+8,userdata,count*20);
-
-  printMessage(tosent,count*20+8);
 
   int bytes_sent = send(sock,tosent,count*20+8,0);
 
@@ -88,8 +85,7 @@ unsigned int handle_sendjoinresponse(int sock,unsigned int count,unsigned char *
   }
   
   free(hdr);
-  //free(tosent);
-  //free(jr);
+  free(jr);
 }
 
 
