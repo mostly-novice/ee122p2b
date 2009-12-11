@@ -952,6 +952,7 @@ int main(int argc, char* argv[]){
 		    // Close connection to the previous successor
 		    if (succ_sock != -1){
 		      close(succ_sock);
+		      FD_CLR(succ_sock,&master);
 		    }
 
 		    printf("P2P: Setting succ_sock to %d\n",i);
