@@ -489,7 +489,7 @@ int main(int argc, char* argv[]){
 				    0,
 				    (struct sockaddr*)&guestsin,&addrLen);
 
-	  printf("Got data from %s:%d\n", inet_ntoa(guestsin.sin_addr),guestsin.sin_port);
+	  //printf("Got data from %s:%d\n", inet_ntoa(guestsin.sin_addr),guestsin.sin_port);
 
 	  if(read_bytes < 0){
 	    perror("Server - Recvfrom Failed - read_bytes return -1\n");
