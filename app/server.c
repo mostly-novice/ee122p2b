@@ -310,6 +310,7 @@ int main(int argc, char* argv[]){
       fprintf(file,"%d %s %d\n", p2p_id,ipchar,myport);
 	  fclose(file);
     }
+    fclose(file);
 
     // Find
     serverInstance ** results = findPredSucc(p2p_id);
@@ -925,7 +926,6 @@ int main(int argc, char* argv[]){
 		      }
 		    }
 
-		    printf("count:%d\n",count);
 		    unsigned char userdata2[20*count];
 		    memset(userdata2,0,count*20);
 		    unsigned int offset = 0;
@@ -1030,8 +1030,7 @@ int main(int argc, char* argv[]){
 		  printf("WE GOT A BKUP_RESPONSE\n");
 		} else {
 		  printf("hdr->msgtype:%d\n",hdr->msgtype);
-		  printf("We got nothing");
-		  exit(0);
+		  printf("We got nothing\n");
 		}
 		// Move the pointers
 		char * temp = (char*) malloc(sizeof(char)*(bufferd->buffer_size-bufferd->desire_length));
