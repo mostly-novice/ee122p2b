@@ -3,7 +3,6 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <sys/dir.h>
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <ctype.h>
@@ -1020,9 +1019,11 @@ int main(int argc, char* argv[]){
 		      FD_CLR(succ_sock,&master);
 		    }
 
+		    sleep(1);
+
 		    // Make a new connection
 		    newconnection(succ_si->ip,succ_si->port,&succ_sock);
-		    printf("P2P: Connecting to fd=%d,%s:%d(%d)\n",succ_sock,succ_si->ip,succ_si->port,succ_si->p2p_id);
+		    printf("P2P: Connected to fd=%d,%s:%d(%d)\n",succ_sock,succ_si->ip,succ_si->port,succ_si->p2p_id);
 		    //printf("P2P: Setting succ_sock to %d\n",succ_sock);
 
 		    successor_si = succ_si;
@@ -1067,16 +1068,19 @@ int main(int argc, char* argv[]){
 		    }
 
 		    if (i == pred_sock && pred_sock != succ_sock){
+
+		      printf("P2P: newguy -close existing connection on fd=%d(%d).\n",pred_sock,predecessor_si->p2p_id);
+		      FD_CLR(i,&master);
+		      pred_sock = -1;
+		      close(i);
+
+		      sleep(1);
+
 		      newconnection(successor_si->ip,successor_si->port,&succ_sock);
 		      fprintf(stdout,"P2P: send P2P_JOIN_REQUEST to succ %d\n",successor_si->p2p_id);
 		      handle_sendjoin(succ_sock,p2p_id);
 		      FD_SET(succ_sock,&master);
 		      fdmax = max(fdmax,succ_sock);
-
-		      //printf("P2P: close existing connection on fd=%d(%d).\n",pred_sock,predecessor_si->p2p_id);
-		      //FD_CLR(i,&master);
-		      //pred_sock = -1;
-		      //close(i);
 		    }
 		  }
 		} else if(hdr->msgtype == P2P_BKUP_REQUEST){
