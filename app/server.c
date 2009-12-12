@@ -170,6 +170,7 @@ void loadData(LinkedList * list,Range * range){
   return 0;
 }
 
+
 int main(int argc, char* argv[]){
 
   /*
@@ -221,6 +222,9 @@ int main(int argc, char* argv[]){
   int myport,myudpport;
   int done = 0;
   int status;
+
+  int closepredflag = 0;
+  int tobeclose = -1;
 
   message_record ** mr_array = malloc(sizeof(*mr_array)*MAX_MESSAGE_RECORD);
 
@@ -386,6 +390,9 @@ int main(int argc, char* argv[]){
 	handle_sendjoin(pred_sock,p2p_id);
 	FD_SET(pred_sock,&master);
 	fdmax = max(fdmax,pred_sock);
+
+	tobeclose = pred_sock;
+	closepredflag = 1;
 
 	// Change the primary and backup range
 	primary->low = pred_si->p2p_id+1;
@@ -574,21 +581,23 @@ int main(int argc, char* argv[]){
 	} else if (i==listener){ 
 	  // handle new connection
 	  struct sockaddr_in from;
-	  int from_len = sizeof(from);
-	  int addr_len = sizeof(client_sin);
-	  int newfd = accept(listener,(struct sockaddr*) &from,&addr_len);
+	  socklen_t from_len = sizeof(from);
+	  int newfd = accept(listener,(struct sockaddr*) &from,&from_len);
 	  if (newfd < 0){
 	    perror("accept failed");
 	  } else {
 	    FD_SET(newfd,&master);
 	    if (newfd > fdmax) fdmax = newfd;
-	    printf("New connection in socket %d from %s:%d\n",
+	    printf("New connection in socket %d from %s:%u\n",
 		   newfd,
 		   inet_ntoa(from.sin_addr),
-		   ntohs(from.sin_port));
-
-	    // If I get a new connection from the predecessor
-	    close(pred_sock);
+		   ntohs(from.sin_port)); // If I get a new connection from the predecessor
+	    if (closepredflag && tobeclose != -1){
+	      printf("Closing previous connection.\n");
+	      closepredflag = 0;
+	      close(tobeclose);
+	      FD_CLR(tobeclose,&master);
+	    }
 	  }
 
 	} else {
@@ -847,7 +856,6 @@ int main(int argc, char* argv[]){
 		      if(fdnamemap[i]){
 			Player * player = findPlayer(fdnamemap[i],mylist);
 			if(player){
-
 			  unsigned char lntosent[LOGOUT_NOTIFY_SIZE];
 			  createlogoutnotify(player,lntosent);
 			  broadcast(login,i,fdmax,lntosent,LOGOUT_NOTIFY_SIZE);
@@ -1003,7 +1011,7 @@ int main(int argc, char* argv[]){
 
 		    // Close connection to the previous successor
 		    if (succ_sock != -1){
-		      printf("Close existing conn fd=%d %s:%d(%d)\n",
+		      printf("Close existing successor's connection fd=%d %s:%d(%d)\n",
 			     succ_sock,
 			     successor_si->ip,
 			     successor_si->port,
@@ -1059,17 +1067,17 @@ int main(int argc, char* argv[]){
 		    }
 
 		    if (i == pred_sock && pred_sock != succ_sock){
-		      printf("P2P: close existing connection on fd=%d(%d).\n",pred_sock,predecessor_si->p2p_id);
-		      FD_CLR(i,&master);
-		      pred_sock = -1;
-		      close(i);
-		      
 		      newconnection(successor_si->ip,successor_si->port,&succ_sock);
 		      fprintf(stdout,"P2P: send P2P_JOIN_REQUEST to succ %d\n",successor_si->p2p_id);
 		      handle_sendjoin(succ_sock,p2p_id);
 		      FD_SET(succ_sock,&master);
 		      fdmax = max(fdmax,succ_sock);
-		  }
+
+		      //printf("P2P: close existing connection on fd=%d(%d).\n",pred_sock,predecessor_si->p2p_id);
+		      //FD_CLR(i,&master);
+		      //pred_sock = -1;
+		      //close(i);
+		    }
 		  }
 		} else if(hdr->msgtype == P2P_BKUP_REQUEST){
 		  printf("P2P: Recieved BKUP_REQUEST\n");
