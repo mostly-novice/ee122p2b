@@ -11,6 +11,7 @@
 #include <stddef.h>
 #include <sys/types.h>
 #include <dirent.h>
+#include <time.h>
 
 #include "header.h"
 #include "messages.h"
@@ -1013,7 +1014,14 @@ int main(int argc, char* argv[]){
 		      FD_CLR(succ_sock,&master);
 		    }
 
-		    sleep(1);
+			struct timespec time1,time2;
+			time1.tv_sec =0;
+			time1.tv_nsec = 500000000;
+			if(nanosleep(&time1,&time2) < 0){
+					printf("Error: Nanosleep failed\n");
+					exit(-1);
+			}
+		    //sleep(1);
 
 		    // Make a new connection
 		    newconnection(succ_si->ip,succ_si->port,&succ_sock);
@@ -1066,9 +1074,16 @@ int main(int argc, char* argv[]){
 		      printf("P2P: close existing connection on fd=%d(%d).\n",pred_sock,predecessor_si->p2p_id);
 		      FD_CLR(i,&master);
 		      pred_sock = -1;
-		      close(i);
+			  close(i);
 
-		      sleep(1);
+			  struct timespec time1,time2;
+			  time1.tv_sec =0;
+			  time1.tv_nsec = 500000000;
+			  if(nanosleep(&time1,&time2) < 0){
+					  printf("Error: Nanosleep failed\n");
+					  exit(-1);
+			  }
+//			  sleep(1);
 
 		      newconnection(successor_si->ip,successor_si->port,&succ_sock);
 		      fprintf(stdout,"P2P: send P2P_JOIN_REQUEST to succ %d\n",successor_si->p2p_id);
