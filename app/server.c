@@ -387,6 +387,12 @@ int main(int argc, char* argv[]){
 	FD_SET(pred_sock,&master);
 	fdmax = max(fdmax,pred_sock);
 
+	newconnection(succ_si->ip,succ_si->port,&succ_sock);
+	fprintf(stdout,"P2P: send P2P_JOIN_REQUEST to succ %d\n",succ_si->p2p_id);
+	handle_sendjoin(succ_sock,p2p_id);
+	FD_SET(succ_sock,&master);
+	fdmax = max(fdmax,succ_sock);	      
+
 	// Change the primary and backup range
 	primary->low = pred_si->p2p_id+1;
 	primary->high = p2p_id;
@@ -1062,12 +1068,6 @@ int main(int argc, char* argv[]){
 		      FD_CLR(i,&master);
 		      pred_sock = -1;
 		      close(i);
-
-		      newconnection(successor_si->ip,successor_si->port,&succ_sock);
-		      fprintf(stdout,"P2P: send P2P_JOIN_REQUEST to succ %d\n",successor_si->p2p_id);
-		      handle_sendjoin(succ_sock,p2p_id);
-		      FD_SET(succ_sock,&master);
-		      fdmax = max(fdmax,succ_sock);
 		    }
 		  }
 		} else if(hdr->msgtype == P2P_BKUP_REQUEST){
