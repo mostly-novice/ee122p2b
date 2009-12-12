@@ -591,12 +591,6 @@ int main(int argc, char* argv[]){
 		   newfd,
 		   inet_ntoa(from.sin_addr),
 		   ntohs(from.sin_port)); // If I get a new connection from the predecessor
-	    if (closepredflag && tobeclose != -1){
-	      printf("Closing previous connection.\n");
-	      closepredflag = 0;
-	      close(tobeclose);
-	      FD_CLR(tobeclose,&master);
-	    }
 	  }
 
 	} else {
@@ -1069,7 +1063,7 @@ int main(int argc, char* argv[]){
 
 		    if (i == pred_sock && pred_sock != succ_sock){
 
-		      printf("P2P: newguy -close existing connection on fd=%d(%d).\n",pred_sock,predecessor_si->p2p_id);
+		      printf("P2P: close existing connection on fd=%d(%d).\n",pred_sock,predecessor_si->p2p_id);
 		      FD_CLR(i,&master);
 		      pred_sock = -1;
 		      close(i);
