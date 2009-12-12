@@ -454,8 +454,11 @@ int main(int argc, char* argv[]){
 
   while(1){ // main accept() lo
     time_t currenttime = time(NULL);
-    tv.tv_sec = 5;
-    tv.tv_usec = 0;
+//    tv.tv_sec = 5;
+
+
+	tv.tv_sec = 0;
+    tv.tv_usec = 500000;
     timeout = 1;
 
     readfds = master; // copy it
