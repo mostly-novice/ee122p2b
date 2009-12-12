@@ -1024,6 +1024,11 @@ int main(int argc, char* argv[]){
 
 
 		} else if(hdr->msgtype == P2P_JOIN_RESPONSE){
+
+		  struct p2p_join_response * jr_payload = (struct p2p_join_response *) payload_c;
+		  unsigned int total = ntohl(jr_payload->usernumber);
+		  unsigned char * userdata = payload_c+4;
+
 		  printf("P2P: recv P2P_JOIN_RESPONSE (%d users)\n",total);
 
 		  if (i == pred_sock && pred_sock != succ_sock){
@@ -1031,19 +1036,13 @@ int main(int argc, char* argv[]){
 		    FD_CLR(i,&master);
 		    pred_sock = -1;
 		    close(i);
-
+		    
 		    newconnection(successor_si->ip,successor_si->port,&succ_sock);
 		    fprintf(stdout,"P2P: send P2P_JOIN_REQUEST to succ %d\n",successor_si->p2p_id);
 		    handle_sendjoin(succ_sock,p2p_id);
-		    
 		    FD_SET(succ_sock,&master);
-
 		    fdmax = max(fdmax,succ_sock);
 		  }
-
-		  struct p2p_join_response * jr_payload = (struct p2p_join_response *) payload_c;
-		  unsigned int total = ntohl(jr_payload->usernumber);
-		  unsigned char * userdata = payload_c+4;
 
 		  int index;
 		  for(index=0; index<total; index++){
