@@ -1091,8 +1091,15 @@ int main(int argc, char* argv[]){
 		  }
 
 		  if(!found){
-		    printf("THIS SHOULD NEVER HAPPEN -- PLAYER %s not found\n",pp->name);
-		    exit(0);
+		    printf("%s is a new player. Adding him/her now.\n",pp->name);
+			Player* p = (Player *)malloc(sizeof(Player));
+			strcpy(p->name,pp->name);
+			p->x = pp->x;
+			p->y = pp->y;
+			p->exp = pp->exp;
+			p->hp = pp->hp;
+		    addPlayer(p,primarylist);
+
 		  }
 
 		  handle_sendbkupresponse(i,0);
