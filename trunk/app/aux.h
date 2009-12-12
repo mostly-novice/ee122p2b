@@ -44,21 +44,29 @@ void putName(int fd, char * name, char*map[]){
 
 void newconnection(char * ip, int port, int * sockargs){
   printf("Connecting to %s:%d\n",ip,port);
-  int sock = socket(AF_INET, SOCK_STREAM, 0);
-  if(sock < 0){ perror("socket() faild"); abort(); }
-
-  *sockargs = sock;
-
-  struct sockaddr_in sin;
-  memset(&sin, 0, sizeof(sin));
-
-  sin.sin_family = AF_INET;
-  sin.sin_addr.s_addr = inet_addr(ip);
-  sin.sin_port = htons(port);
-
-  if(connect(sock,(struct sockaddr *) &sin, sizeof(sin)) < 0){
-    perror("newconection - Fail to connect");
-    close(sock);
-    abort();
+  int done = 0;
+  while(!done){
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    if(sock < 0){ perror("socket() faild"); abort(); }
+    
+    *sockargs = sock;
+    
+    struct sockaddr_in sin;
+    memset(&sin, 0, sizeof(sin));
+    
+    sin.sin_family = AF_INET;
+    sin.sin_addr.s_addr = inet_addr(ip);
+    sin.sin_port = htons(port);
+    
+    int val = connect(sock,(struct sockaddr *) &sin, sizeof(sin));
+    
+    if( val >= 0){
+      printf("Successfully connected.\n");
+      done = 1;
+    } else {
+      perror("newconection - Fail to connect");
+      printf("Retrying...\n");
+      close(sock);
+    }
   }
 }
