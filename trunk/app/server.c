@@ -11,7 +11,6 @@
 #include <stddef.h>
 #include <sys/types.h>
 #include <dirent.h>
-#include <time.h>
 
 #include "header.h"
 #include "messages.h"
@@ -223,9 +222,6 @@ int main(int argc, char* argv[]){
   int done = 0;
   int status;
 
-  int closepredflag = 0;
-  int tobeclose = -1;
-
   message_record ** mr_array = malloc(sizeof(*mr_array)*MAX_MESSAGE_RECORD);
 
   fd_set master,readfds,login;
@@ -390,9 +386,6 @@ int main(int argc, char* argv[]){
 	handle_sendjoin(pred_sock,p2p_id);
 	FD_SET(pred_sock,&master);
 	fdmax = max(fdmax,pred_sock);
-
-	tobeclose = pred_sock;
-	closepredflag = 1;
 
 	// Change the primary and backup range
 	primary->low = pred_si->p2p_id+1;
@@ -1014,15 +1007,6 @@ int main(int argc, char* argv[]){
 		      FD_CLR(succ_sock,&master);
 		    }
 
-			struct timespec time1,time2;
-			time1.tv_sec =0;
-			time1.tv_nsec = 500000000;
-			if(nanosleep(&time1,&time2) < 0){
-					printf("Error: Nanosleep failed\n");
-					exit(-1);
-			}
-		    //sleep(1);
-
 		    // Make a new connection
 		    newconnection(succ_si->ip,succ_si->port,&succ_sock);
 		    printf("P2P: Connected to fd=%d,%s:%d(%d)\n",succ_sock,succ_si->ip,succ_si->port,succ_si->p2p_id);
@@ -1074,16 +1058,7 @@ int main(int argc, char* argv[]){
 		      printf("P2P: close existing connection on fd=%d(%d).\n",pred_sock,predecessor_si->p2p_id);
 		      FD_CLR(i,&master);
 		      pred_sock = -1;
-			  close(i);
-
-			  struct timespec time1,time2;
-			  time1.tv_sec =0;
-			  time1.tv_nsec = 500000000;
-			  if(nanosleep(&time1,&time2) < 0){
-					  printf("Error: Nanosleep failed\n");
-					  exit(-1);
-			  }
-//			  sleep(1);
+		      close(i);
 
 		      newconnection(successor_si->ip,successor_si->port,&succ_sock);
 		      fprintf(stdout,"P2P: send P2P_JOIN_REQUEST to succ %d\n",successor_si->p2p_id);
