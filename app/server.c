@@ -386,16 +386,16 @@ int main(int argc, char* argv[]){
 	newconnection(pred_si->ip,pred_si->port,&pred_sock);
 	fprintf(stdout,"P2P: send P2P_JOIN_REQUEST to pred %d\n",pred_si->p2p_id);
 	handle_sendjoin(pred_sock,p2p_id);
-
-	newconnection(succ_si->ip,succ_si->port,&succ_sock);
-	fprintf(stdout,"P2P: send P2P_JOIN_REQUEST to succ %d\n",pred_si->p2p_id);
-	handle_sendjoin(succ_sock,p2p_id);
-
 	FD_SET(pred_sock,&master);
-	FD_SET(succ_sock,&master);
-
 	fdmax = max(fdmax,pred_sock);
-	fdmax = max(fdmax,succ_sock);
+
+	//newconnection(succ_si->ip,succ_si->port,&succ_sock);
+	//fprintf(stdout,"P2P: send P2P_JOIN_REQUEST to succ %d\n",pred_si->p2p_id);
+	//handle_sendjoin(succ_sock,p2p_id);
+
+	//FD_SET(succ_sock,&master);
+
+	//fdmax = max(fdmax,succ_sock);
 
 	// Change the primary and backup range
 	primary->low = pred_si->p2p_id+1;
@@ -1002,7 +1002,6 @@ int main(int argc, char* argv[]){
 
 		    printf("P2P: Send JOIN_REPONSE to sock: %d (%d users)\n",i,count);
 		    handle_sendjoinresponse(i,count,userdata2);
-		    //close(i);
 
 		    // Close connection to the previous successor
 		    if (succ_sock != -1){
@@ -1025,14 +1024,26 @@ int main(int argc, char* argv[]){
 
 
 		} else if(hdr->msgtype == P2P_JOIN_RESPONSE){
-		  /*
-		    Populate the data
-		  */		  
+		  printf("P2P: recv P2P_JOIN_RESPONSE (%d users)\n",total);
+
+		  if (i == pred_sock && pred_sock != succ_sock){
+		    printf("P2P: close connection on fd=%d(%d).\n",pred_sock,predecessor_si->p2p_id);
+		    FD_CLR(i,&master);
+		    pred_sock = -1;
+		    close(i);
+
+		    newconnection(successor_si->ip,successor_si->port,&succ_sock);
+		    fprintf(stdout,"P2P: send P2P_JOIN_REQUEST to succ %d\n",successor_si->p2p_id);
+		    handle_sendjoin(succ_sock,p2p_id);
+		    
+		    FD_SET(succ_sock,&master);
+
+		    fdmax = max(fdmax,succ_sock);
+		  }
+
 		  struct p2p_join_response * jr_payload = (struct p2p_join_response *) payload_c;
 		  unsigned int total = ntohl(jr_payload->usernumber);
 		  unsigned char * userdata = payload_c+4;
-
-		  printf("P2P: recv P2P_JOIN_RESPONSE (%d users)\n",total);
 
 		  int index;
 		  for(index=0; index<total; index++){
@@ -1062,14 +1073,6 @@ int main(int argc, char* argv[]){
 
 		      printf("This player:%d(name: %s) is not in my ranges!\n",player->p2p_id,player->name);
 		    }
-		  }
-
-		  // Close the connection to the predecessor, but keeps the connection with the successor.
-		  if (i == pred_sock && pred_sock != succ_sock){
-		    printf("P2P: close connection on fd=%d(%d).\n",pred_sock,predecessor_si->p2p_id);
-		    FD_CLR(i,&master);
-		    pred_sock = -1;
-		    close(i);
 		  }
 		} else if(hdr->msgtype == P2P_BKUP_REQUEST){
 		  printf("P2P: Recieved BKUP_REQUEST\n");

@@ -43,6 +43,7 @@ void putName(int fd, char * name, char*map[]){
 }
 
 void newconnection(char * ip, int port, int * sockargs){
+  printf("Connecting to %s:%d\n",ip,port);
   int sock = socket(AF_INET, SOCK_STREAM, 0);
   if(sock < 0){ perror("socket() faild"); abort(); }
 
@@ -56,8 +57,7 @@ void newconnection(char * ip, int port, int * sockargs){
   sin.sin_port = htons(port);
 
   if(connect(sock,(struct sockaddr *) &sin, sizeof(sin)) < 0){
-    //TODO: Handle Disconnection of predecessor
-    perror("client - connect");
+    perror("newconection - Fail to connect");
     close(sock);
     abort();
   }
