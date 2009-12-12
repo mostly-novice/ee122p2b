@@ -143,6 +143,10 @@ serverInstance** findPredSucc(unsigned int p2p_id){
   char succ_ip[30];
   char pred_ip[30];
 
+  char currentPath[300];
+  getcwd(currentPath,300);
+
+  fprintf(stdout,"Current path:%s\n",currentPath);
   char * name = "peers.lst";
   FILE * file = fopen(name,"re");
 
@@ -215,7 +219,7 @@ serverInstance** findPredSucc(unsigned int p2p_id){
     return predsucc;
   } else{ // Check for the file
     fprintf(stderr,"Error: %s.\n",strerror(errno));
-    exit(0);
+    fprintf(stdout,"Current path:%s\n",currentPath);
   }
 }
 
