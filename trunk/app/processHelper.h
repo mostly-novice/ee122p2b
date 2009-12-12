@@ -5,7 +5,7 @@
 //player = process_login_request(0,i,fdmax,login,lr->name,lr->hp,lr->exp,lr->x,lr->y,mylist);
 Player * process_login_request(char errorcode, int sock, int fdmax, fd_set login, unsigned char * n,
 			       int hp, int exp, int x, int y, LinkedList * activeList){
-  chdir(USERDIR);
+
   char * name = (char *) malloc(sizeof(char)*(strlen(n)+1));
   strcpy(name,n);
   strcat(name,"\0");
@@ -166,53 +166,56 @@ int process_psr(char* name,
 		int id,int oldest,
 		message_record** mr_array,
 		int badMessageTypeFlag){
-	FILE * file = fopen(name,"r"); // open the file
-	int hp;
-	int exp;
-	int x;
-	int y;
 
-	if(file){ // If this file existed
-		fscanf(file,"%d%d%d%d",&hp,&exp,&x,&y);
-		fclose(file);
-	} else{ // If it doesn't
-		// Randomize the data
-		srand(time(NULL));
-		hp = 100 + rand()%21;
-		exp = 0;
-		y = rand()%100;
-		x = rand()%100;
+  chdir("users");
+  FILE * file = fopen(name,"r"); // open the file
+  int hp;
+  int exp;
+  int x;
+  int y;
 
-		// Add this entry to the db
-		FILE * file2 = fopen(name,"w+"); // open a new file with overwrite
-		if(file2 == NULL) perror("file open");
+  if(file){ // If this file existed
+    fscanf(file,"%d%d%d%d",&hp,&exp,&x,&y);
+    fclose(file);
+  } else{ // If it doesn't
+    // Randomize the data
+    srand(time(NULL));
+    hp = 100 + rand()%21;
+    exp = 0;
+    y = rand()%100;
+    x = rand()%100;
 
-		// Write to file
-		fprintf(file2,"%d %d %d %d",hp,exp,x,y);
-		fclose(file2);
-	}
+    // Add this entry to the db
+    FILE * file2 = fopen(name,"w+"); // open a new file with overwrite
+    if(file2 == NULL) perror("file open");
 
-	// At this point, we should have all the data to form the PLAYER_STATE_RESPONSE
-	char buffer[PLAYER_STATE_RESPONSE_SIZE];
-	createpsr(name,hp,exp,x,y,id,buffer);
-	if(badMessageTypeFlag){
-		buffer[0]=135;
-	}
-	udpunicast(udpsock,targetsin,buffer,PLAYER_STATE_RESPONSE_SIZE);
+    // Write to file
+    fprintf(file2,"%d %d %d %d",hp,exp,x,y);
+    fclose(file2);
+  }
+  chdir("..");
 
-	// Set the last message sent for Dup checking.
-	message_record * new_mr = (message_record*) malloc(sizeof(message_record));
-	new_mr->ip = targetsin.sin_addr.s_addr;
-	new_mr->id = id;
-	new_mr->message = (unsigned char*) malloc (sizeof(char)*PLAYER_STATE_RESPONSE_SIZE);
-	memcpy(new_mr->message,(char*)buffer,PLAYER_STATE_RESPONSE_SIZE);
+  // At this point, we should have all the data to form the PLAYER_STATE_RESPONSE
+  char buffer[PLAYER_STATE_RESPONSE_SIZE];
+  createpsr(name,hp,exp,x,y,id,buffer);
+  if(badMessageTypeFlag){
+    buffer[0]=135;
+  }
+  udpunicast(udpsock,targetsin,buffer,PLAYER_STATE_RESPONSE_SIZE);
 
-	if (mr_array[oldest]){
-		free(mr_array[oldest]->message);
-		free(mr_array[oldest]);
-	}
+  // Set the last message sent for Dup checking.
+  message_record * new_mr = (message_record*) malloc(sizeof(message_record));
+  new_mr->ip = targetsin.sin_addr.s_addr;
+  new_mr->id = id;
+  new_mr->message = (unsigned char*) malloc (sizeof(char)*PLAYER_STATE_RESPONSE_SIZE);
+  memcpy(new_mr->message,(char*)buffer,PLAYER_STATE_RESPONSE_SIZE);
 
-	mr_array[oldest] = new_mr;
+  if (mr_array[oldest]){
+    free(mr_array[oldest]->message);
+    free(mr_array[oldest]);
+  }
+
+  mr_array[oldest] = new_mr;
 }
 
 // process_ssr : process save state request

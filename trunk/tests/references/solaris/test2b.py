@@ -6,13 +6,13 @@
 import fcntl, os, random, re, signal, socket, struct, sys, types
 import curses.ascii
 from subprocess import Popen, PIPE, STDOUT
-from time import sleep
+from time import sleep, time
 
 # Turn on this flag if need more debugging messages.
 verbose = 1
 
 # Environment set up.
-_version_=0.2
+_version_=0.3
 c_bin = './client'
 try:
     s_bin = "./"+sys.argv[1]
@@ -247,7 +247,7 @@ if __name__ == '__main__':
     if svr.poll():
         print "FAIL. server terminated."
     else:
-        if ref1.stdout.read().find("New connection") > 0:
+        if ref1.stdout.read().find("New connection") >= 0:
             print "PASS"
         else:
             print "FAIL. ref1 didn't get new connection from sever."
@@ -281,7 +281,7 @@ if __name__ == '__main__':
         if i==2 and j==1:
             print "PASS"
         else:
-            print "FAIL. ref2 has %d recv and %d new connection. should be 1 and 2" % (i,j)
+            print "FAIL. ref2 has %d recv and %d new connection. should be 2 and 1" % (i,j)
 
     os.kill(ref1.pid, signal.SIGTERM)
     os.kill(ref2.pid, signal.SIGTERM)
@@ -311,11 +311,11 @@ if __name__ == '__main__':
 
     print 'Test 1 server and 2 ref_servers: ref1 crashes',
     os.kill(ref1.pid, signal.SIGTERM)
-    sleep(s_timer*2)
+    sleep(s_timer)
     if svr.poll():
         print "FAIL. server terminated."
     else:
-        if ref2.stdout.read().find("New connection") > 0:
+        if ref2.stdout.read().find("New connection") >= 0:
             print "PASS"
         else:
             print "FAIL. ref2 didn't get new connection from sever."

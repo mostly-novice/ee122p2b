@@ -586,8 +586,8 @@ int main(int argc, char* argv[]){
 		    strcpy(p->name,pp->name);
 		    p->x = pp->x;
 		    p->y = pp->y;
-		    p->exp = pp->exp;
-		    p->hp = pp->hp;
+		    p->exp = ntohl(pp->exp);
+		    p->hp = ntohl(pp->hp);
 		    p->p2p_id = calc_p2p_id(p->name);
 
 		    fprintf(stdout,"P2P: add player %s (HP=%d,EXP=%d,X=%d,Y=%d,P2P_ID=%d) to primary list\n",
@@ -1128,10 +1128,10 @@ int main(int argc, char* argv[]){
 		    printf("%s is a new player. Adding him/her now.\n",pp->name);
 		    Player* p = (Player *)malloc(sizeof(Player));
 		    strcpy(p->name,pp->name);
-		    p->x = pp->x;
-		    p->y = pp->y;
-		    p->exp = pp->exp;
-		    p->hp = pp->hp;
+		    p->x      = pp->x;
+		    p->y      = pp->y;
+		    p->exp    = ntohl(pp->exp);
+		    p->hp     = ntohl(pp->hp);
 		    p->p2p_id = calc_p2p_id(p->name);
 
 		    fprintf(stdout,"P2P: add player %s (HP=%d,EXP=%d,X=%d,Y=%d,P2P_ID=%d) to backup list\n",
