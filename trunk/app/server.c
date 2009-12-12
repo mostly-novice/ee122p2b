@@ -558,11 +558,46 @@ int main(int argc, char* argv[]){
 		  pp->exp = ssr->exp;
 		  pp->x = ssr->x;
 		  pp->y = ssr->y;
+
 		  unsigned char * userdata = (unsigned char *) pp;
 
 		  if (succ_sock != -1){
 		    printf("P2P: Send P2P_BKUP_REQUEST to sock %d\n",succ_sock);
 		    handle_sendbkuprequest(succ_sock,userdata);
+		  }
+		  
+		  int found = 0;
+		  // Change primary list
+		  for(p = primarylist->head; p; p=p->next){
+		    Player * curp = p->datum;
+		    if(strcmp(curp->name,pp->name)==0){
+		      printf("P2P: found %s in primary list.\n",curp->name);
+		      found = 1;
+		      curp->x = pp->x;
+		      curp->y = pp->y;
+		      curp->exp = ntohl(pp->exp);
+		      curp->hp = ntohl(pp->hp);
+		    }
+		  }
+
+		  if(!found){
+		    printf("%s is a new player. Adding him/her to primary list.\n",pp->name);
+		    Player* p = (Player *)malloc(sizeof(Player));
+		    strcpy(p->name,pp->name);
+		    p->x = pp->x;
+		    p->y = pp->y;
+		    p->exp = pp->exp;
+		    p->hp = pp->hp;
+		    p->p2p_id = calc_p2p_id(p->name);
+
+		    fprintf(stdout,"P2P: add player %s (HP=%d,EXP=%d,X=%d,Y=%d,P2P_ID=%d) to primary list\n",
+			      p->name,
+			      p->hp,
+			      p->exp,
+			      p->x,
+			      p->y,
+			      p->p2p_id);
+		    addPlayer(p,primarylist);
 		  }
 		}
 	      }else{
@@ -1091,14 +1126,22 @@ int main(int argc, char* argv[]){
 
 		  if(!found){
 		    printf("%s is a new player. Adding him/her now.\n",pp->name);
-			Player* p = (Player *)malloc(sizeof(Player));
-			strcpy(p->name,pp->name);
-			p->x = pp->x;
-			p->y = pp->y;
-			p->exp = pp->exp;
-			p->hp = pp->hp;
-		    addPlayer(p,primarylist);
+		    Player* p = (Player *)malloc(sizeof(Player));
+		    strcpy(p->name,pp->name);
+		    p->x = pp->x;
+		    p->y = pp->y;
+		    p->exp = pp->exp;
+		    p->hp = pp->hp;
+		    p->p2p_id = calc_p2p_id(p->name);
 
+		    fprintf(stdout,"P2P: add player %s (HP=%d,EXP=%d,X=%d,Y=%d,P2P_ID=%d) to backup list\n",
+			      p->name,
+			      p->hp,
+			      p->exp,
+			      p->x,
+			      p->y,
+			      p->p2p_id);
+		    addPlayer(p,backuplist);
 		  }
 
 		  handle_sendbkupresponse(i,0);
