@@ -528,7 +528,7 @@ int main(int argc, char* argv[]){
 		  on_malformed_udp(1);
 		}else{
 		  struct player_state_request * psr = (struct player_state_request *) udp_read_buffer;
-		  //check name
+
 		  if(check_player_name(psr->name)==0){	
 		    printf("PLAYER NAME IS BAD\n");
 		    continue;
